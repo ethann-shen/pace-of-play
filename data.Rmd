@@ -1,0 +1,78 @@
+---
+title: "Data"
+author: "Ethan Shen"
+date: "8/28/2020"
+output: html_document
+---
+
+```{r}
+library(StatsBombR)
+library(purrr)
+library(dplyr)
+library(stringr)
+library(tidyr)
+```
+
+```{r}
+Comp <- FreeCompetitions()
+Matches <- FreeMatches(Comp)
+
+Matches %>% 
+  group_by(competition.competition_name,season.season_name) %>% count()
+
+match <- get.matchFree(Matches[1,])
+
+match %>% 
+  filter(index %in% (2968:2981)) # the play that set up the second goal in the 2019 Champions League Final
+```
+
+
+```{r}
+shot_attempt <- goalkeeperinfo(match) %>% 
+  filter(!is.na(shot.outcome.name)) %>% 
+  mutate(location.x = map(location, 1) %>% unlist(), # made assumption location is stored as (x,y) --> do not know what location is (location of ball, location of player, etc.) or what the "coordinate system" of the pitch looks like (is origin the middle of the pitch or the left side of the pitch)
+         location.y = map(location, 2) %>% unlist()) 
+
+shot.end_location.x = map(shot_attempt$shot.end_location, 1) %>% unlist() 
+shot.end_location.y = map(shot_attempt$shot.end_location, 2) %>% unlist()
+
+shot.end_location.z = map(shot_attempt$shot.end_location, 3) 
+shot.end_location.z[unlist(lapply(shot.end_location.z , is.null))]  <- NA
+
+shot_attempt <- shot_attempt %>% 
+  mutate(shot.end_location.x = shot.end_location.x,
+         shot.end_location.y = shot.end_location.y, 
+         shot.end_location.z = shot.end_location.z %>% unlist())
+
+shot_attempt <- shot_attempt %>% 
+  select(id, index, timestamp:related_events, location.x, location.y, under_pressure, out, type.name, possession_team.name, play_pattern.name, team.name,  player.name,
+         shot.end_location.x, shot.end_location.y, shot.end_location.z, shot.freeze_frame, shot.first_time, shot.outcome.name, shot.type.name, shot.body_part.name,
+         shot.technique.name, player.name.GK, location.x.GK, location.y.GK)
+```
+
+
+```{r}
+goal_keeper <- goalkeeperinfo(match) %>% 
+  filter(type.name == "Goal Keeper")
+
+goal_keeper.location = goal_keeper$location
+goal_keeper.location[unlist(lapply(goal_keeper.location , is.null))]  <- c(NA, NA)
+goal_keeper.location.x = map(goal_keeper.location, 1) %>% unlist()
+goal_keeper.location.y = c(map(goal_keeper.location, 2) %>% unlist(), NA)
+
+goal_keeper <- goal_keeper %>% 
+  mutate(location.x = goal_keeper.location.x, 
+         location.y = goal_keeper.location.y) %>% 
+  select(id, index, timestamp:related_events, location.x, location.y, under_pressure, out, type.name, possession_team.name, team.name,  player.name, goalkeeper.end_location,goalkeeper.punched_out, goalkeeper.technique.name, goalkeeper.outcome.name, goalkeeper.type.name, goalkeeper.position.name, goalkeeper.body_part.name)
+
+```
+
+```{r}
+bind_rows(shot_attempt, goal_keeper) %>% 
+  arrange(index) %>% 
+  View()
+``` 
+
+
+
+
