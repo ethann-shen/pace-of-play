@@ -64,11 +64,9 @@ ggplot(pass_data) +
 #
 ```
 
-
 ```{r}
 england_coords <- readRDS("data/england_coords.Rds")
 ```
-
 
 ```{r fig.height = 6}
 # Liverpool home games, first half (they play on left side)
