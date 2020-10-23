@@ -1,0 +1,161 @@
+---
+title: "EDA"
+author: "Ethan Shen"
+date: "10/1/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#library(ggforce)
+#library(ggrepel)
+library(soccermatics)
+library(ggsoccer)
+library(tidyverse)
+```
+
+```{r}
+england <- readRDS("data/england_events.Rds")
+
+england <- england %>% 
+  tidyr::separate(col = label, into = c("teams",  "score"), sep = ",") %>% 
+  tidyr::separate(col = teams, into = c("home",  "away"), sep = " - ") %>% 
+  tidyr::separate(col = score, into = c("home_score",  "away_score"), sep = " - ") 
+
+england <- england %>% 
+  mutate(home_posession = case_when(
+    name == home  ~ 1, 
+    name == away ~ 0
+  ))
+  
+# dimensions are 105 by 68
+england_coords <- england %>% 
+  mutate(x = x * 1.05,
+         y = y * 0.68) %>% 
+  select(x, y, matchPeriod, teamId, home, away, matchId)
+
+#england_coords %>% saveRDS("england_coords.Rds")
+```
+
+```{r}
+wys_coords <- england %>% 
+  select(x, y, matchPeriod, teamId, home, away, matchId) %>% 
+  head() %>% 
+  mutate(lag_x = lag(x),
+         lag_y = lag(y),
+         EW_dist = abs(lag_x - x),
+         NS_dist = abs(lag_y - y),
+         total_dist = sqrt((lag_x - x)^2 + (lag_y - y)^2))  %>% na.omit()
+
+to_wys <- rescale_coordinates(from = pitch_opta, to = pitch_wyscout)
+pass_data <- data.frame(x = to_wys$x(wys_coords$lag_x),
+                        y = to_wys$y(wys_coords$lag_y),
+                        x2 = to_wys$x(wys_coords$x),
+                        y2 =  to_wys$y(wys_coords$y))
+
+ggplot(pass_data) +
+  annotate_pitch() +
+  geom_segment(aes(x = x, y = y, xend = x2, yend = y2),
+               arrow = arrow(length = unit(0.25, "cm"),
+                             type = "closed")) +
+  theme_pitch() +
+  direction_label() +
+  ggtitle("First Posession", 
+          "from Arsenal vs. Lecister 2017-2018") 
+#
+```
+
+
+```{r}
+england_coords <- readRDS("data/england_coords.Rds")
+```
+
+
+```{r fig.height = 6}
+# Liverpool home games, first half (they play on left side)
+p1 <- england_coords %>% 
+  filter(teamId == 1612 & 
+           matchPeriod == "1H" & 
+           home == "Liverpool"
+           ) %>% 
+  soccerHeatmap(x = "x", y = "y", xBins = 21, yBins = 14,
+                title = "Liverpool", 
+                subtitle = "Passing heatmap (1st Half & Home Games)")
+
+# Liverpool home games, second half (they play on right side)
+p2 <- england_coords %>% 
+  filter(teamId == 1612 & 
+           matchPeriod == "2H" & 
+           home == "Liverpool"
+           ) %>% 
+  soccerHeatmap(x = "x", y = "y", xBins = 21, yBins = 14,
+                title = "Liverpool", 
+                subtitle = "Passing heatmap (2nd Half & Home Games)")
+
+# Liverpool away games, first half (they play on right side)
+p3 <- england_coords %>% 
+  filter(teamId == 1612 & 
+           matchPeriod == "1H" & 
+           away == "Liverpool"
+           ) %>% 
+  soccerHeatmap(x = "x", y = "y", xBins = 21, yBins = 14,
+                title = "Liverpool", 
+                subtitle = "Passing heatmap (1st Half & Away Games)")
+
+# Liverpool away games, second half (they play on left side)
+p4 <- england_coords %>% 
+  filter(teamId == 1612 & 
+           matchPeriod == "2H" & 
+           away == "Liverpool"
+           ) %>% 
+  soccerHeatmap(x = "x", y = "y", xBins = 21, yBins = 14,
+                title = "Liverpool", 
+                subtitle = "Passing heatmap (2nd Half & Away Games)")
+
+gridExtra::grid.arrange(p1,p2,p3,p4)
+```
+
+
+```{r fig.height=6}
+p5 <- england_coords %>% 
+  filter(teamId == 1612 & 
+           matchPeriod == "1H" & 
+           home == "Liverpool"
+           ) %>% 
+  soccerHeatmap(x = "x", y = "y", xBins = 35, yBins = 23,
+                title = "Liverpool", 
+                subtitle = "Passing heatmap (1st Half & Home Games)")
+
+# Liverpool home games, second half (they play on right side)
+p6 <- england_coords %>% 
+  filter(teamId == 1612 & 
+           matchPeriod == "2H" & 
+           home == "Liverpool"
+           ) %>% 
+  soccerHeatmap(x = "x", y = "y", xBins = 35, yBins = 23,
+                title = "Liverpool", 
+                subtitle = "Passing heatmap (2nd Half & Home Games)")
+
+# Liverpool away games, first half (they play on right side)
+p7 <- england_coords %>% 
+  filter(teamId == 1612 & 
+           matchPeriod == "1H" & 
+           away == "Liverpool"
+           ) %>% 
+  soccerHeatmap(x = "x", y = "y", xBins = 35, yBins = 23,
+                title = "Liverpool", 
+                subtitle = "Passing heatmap (1st Half & Away Games)")
+
+# Liverpool away games, second half (they play on left side)
+p8 <- england_coords %>% 
+  filter(teamId == 1612 & 
+           matchPeriod == "2H" & 
+           away == "Liverpool"
+           ) %>% 
+  soccerHeatmap(x = "x", y = "y", xBins = 35, yBins = 23,
+                title = "Liverpool", 
+                subtitle = "Passing heatmap (2nd Half & Away Games)")
+
+
+gridExtra::grid.arrange(p5,p6,p7,p8)
+```
+
