@@ -1,6 +1,6 @@
 library(tidyverse)
 library(jsonlite)
-
+library(sf)
 # helper functions
 set_start_position_names <- function(x, y) {
   names(x$positions[[1]]) <- y
@@ -25,21 +25,18 @@ read_event_data <- function(data_path) {
            end_y   = positions_y,
            end_x   = positions_x) %>% 
     rename_with(~str_remove(., "_id$"), .cols = starts_with("tags_id_")) %>% 
+    mutate_at(.vars = vars(ends_with("_y"), ends_with("_x"), "event_sec"), .funs = as.double) %>% 
+    mutate(end_x = if_else(is.na(end_x), start_x, end_x), # always a foul
+           end_y = if_else(is.na(end_y), start_y, end_y)) %>% 
     select(event_id, sub_event_name, starts_with("tags_id"), everything())
 }
 
 # event data
-england <- read_event_data("json_files/events/events_England.json")
+england <- read_event_data("json_files/events/events_England.json") 
 france <- read_event_data("json_files/events/events_France.json")
 germany <- read_event_data("json_files/events/events_Germany.json")
 italy <- read_event_data("json_files/events/events_Italy.json")
 spain <- read_event_data("json_files/events/events_Spain.json")
-
-england %>% saveRDS("data/england.Rds")
-france %>% saveRDS("data/france.Rds")
-germany %>% saveRDS("data/germany.Rds")
-italy %>% saveRDS("data/italy.Rds")
-spain %>% saveRDS("data/spain.Rds")
 
 # player data
 players <- read_json("json_files/players.json")
@@ -67,10 +64,117 @@ teams <- read_json("json_files/teams.json") %>%
          area_alpha_2 = area_alpha2code)
 teams %>% saveRDS("data/teams.Rds")
 
+# joining event and team data 
+
+join_event_team_data <- function(event_data) {
+  event_data %>% 
+    left_join(teams, by = c("team_id" = "wy_id")) %>% 
+    select(-(area_id:type))
+}
+
+england <- join_event_team_data(england) 
+france <- join_event_team_data(france) 
+germany <- join_event_team_data(germany) 
+italy <- join_event_team_data(italy)
+spain <- join_event_team_data(spain) 
+
+# create possession id
+
+make_possession_id <- function(event_data) {
+  possession_list = c()
+  all_matches <- event_data$match_id %>% unique() 
+  
+  for (match in 1:length(all_matches)) {
+    print(all_matches[match])
+    temp_list = c(1)
+    pid = 1 # possession id, resets for each match 
+    match_df <- event_data %>% filter(match_id == all_matches[match])
+    
+    for (i in 2:nrow(match_df)) {
+      #print(i)
+      if (match_df[i,]$event_name %in% c("Duel", "Others on the ball")) { 
+        passes <- which(match_df$event_name == "Pass")
+        previous_pass <- ifelse(purrr::is_empty(passes[passes < i]), i, passes[passes < i] %>% max())
+        
+        if (i > previous_pass) {
+          next_pass <- previous_pass
+        } else {
+          next_pass <- passes[passes > i] %>% min()
+        }
+        if (match_df$name[previous_pass] == match_df$name[next_pass]) { # if there are consecutive duels, but the original team is able to make a pass , that is one possession
+          temp_list <- c(temp_list, pid)
+        } else {
+          if (match_df$event_name[i+1] %in% c("Duel") | match_df$name[i] == match_df$name[previous_pass]) {
+            temp_list <- c(temp_list, pid)
+          } else {
+            pid = pid+1
+            temp_list <- c(temp_list, pid)
+          }
+        }
+      } else if (match_df[i,]$event_name %in% c("Foul", "Free Kick", "Interruption",  "Offside", "Shot", "Save attempt")) {# automatically new possession everytime there is a free kick,  shot, or save attempt  
+        if (match_df[i-1,]$event_name %in% c("Foul", "Free Kick", "Interruption",  "Offside", "Shot", "Save attempt")) { # if play ends in a foul, that completes the possession
+          pid = pid + 1
+          temp_list <- c(temp_list, pid)
+        } else {
+          temp_list <- c(temp_list, pid)
+        }
+      } else if (match_df[i,]$event_name == "Pass") { # if there are consecutive passes 
+        
+        passes <- which(match_df$event_name == "Pass")
+        previous_pass <- ifelse(purrr::is_empty(passes[passes < i]), i, passes[passes < i] %>% max())
+        
+        if (match_df$name[i] == match_df$name[previous_pass]) { # deals with duels that end up with the original team still with possession
+          temp_list <- c(temp_list, pid)
+        } else {
+          pid = pid + 1
+          temp_list <- c(temp_list, pid)
+        }
+      } else {
+        temp_list <- c(temp_list, pid)
+      }
+    }
+    possession_list <- c(possession_list, temp_list)
+  }
+  return(possession_list)
+}
+
+england <- england %>% 
+  mutate(poss_id = make_possession_id(england))
+france <- france %>% 
+  mutate(poss_id = make_possession_id(france))
+germany <- germany %>% 
+  mutate(poss_id = make_possession_id(germany))
+italy <- italy %>% 
+  mutate(poss_id = make_possession_id(italy))
+spain <- spain %>% 
+  mutate(poss_id = make_possession_id(spain))
 
 
+# make sf linestring for each event 
+make_line <- function(start_x, start_y, end_x, end_y) {
+  st_linestring(matrix(c(start_x, end_x, start_y,  end_y), 2, 2))
+}
+
+# https://stackoverflow.com/questions/51918536/r-create-linestring-from-two-points-in-same-row-in-dataframe
+
+add_linestring_to_df <- function(event_data) {
+  event_data %>% 
+    mutate_at(.vars = vars(ends_with("_y"), ends_with("_x"), "event_sec"), .funs = as.double) %>% 
+    select(start_x, end_x, start_y, end_y) %>% 
+    purrr::pmap(make_line)  %>% 
+    st_as_sfc() %>% 
+    {tibble(event_data, line_geometry = .)} %>% 
+    st_sf() 
+}
+
+england <- add_linestring_to_df(england)
 
 
+england %>% saveRDS("data/england.Rds")
+france %>% saveRDS("data/france.Rds")
+germany %>% saveRDS("data/germany.Rds")
+italy %>% saveRDS("data/germany.Rds")
+spain %>% saveRDS("data/spain.Rds")
 
 ### OLD 
 # library(jsonlite)
