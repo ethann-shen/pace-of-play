@@ -25,9 +25,14 @@ read_event_data <- function(data_path) {
            end_y   = positions_y,
            end_x   = positions_x) %>% 
     rename_with(~str_remove(., "_id$"), .cols = starts_with("tags_id_")) %>% 
-    mutate_at(.vars = vars(ends_with("_y"), ends_with("_x"), "event_sec"), .funs = as.double) %>% 
+    mutate_at(.vars = vars(ends_with("_x"), "event_sec"), .funs = as.double) %>% 
+    mutate_at(.vars = vars(ends_with("_y")), .funs = funs(100 - (. %>% as.double()))) %>% # rotates coordinates about x axis 
     mutate(end_x = if_else(is.na(end_x), start_x, end_x), # always a foul
            end_y = if_else(is.na(end_y), start_y, end_y)) %>% 
+    mutate(adj_start_x = start_x * 1.05,
+           adj_end_x = end_x * 1.05,
+           adj_start_y = start_y * 0.7,
+           adj_end_y = end_y * 0.7,) %>% 
     select(event_id, sub_event_name, starts_with("tags_id"), everything())
 }
 
@@ -44,8 +49,9 @@ for (i in which(sapply(players, function(x) x[['currentNationalTeamId']]) == 'nu
   players[[i]]$currentNationalTeamId <- NA
 }
 
-team_id_index <- c(which(sapply(players, function(x) is.null(x[['currentTeamId']]))),
-                   which(sapply(players, function(x) x[['currentTeamId']]) == 'null')
+team_id_index <- c(
+  which(sapply(players, function(x) is.null(x[['currentTeamId']]))),
+  which(sapply(players, function(x) x[['currentTeamId']]) == 'null')
 ) 
 
 for (i in team_id_index) {
@@ -152,14 +158,16 @@ spain <- spain %>%
 
 # make sf linestring for each event 
 make_line <- function(start_x, start_y, end_x, end_y) {
-  st_linestring(matrix(c(start_x, end_x, start_y,  end_y), 2, 2))
+  st_linestring(matrix(c(start_x, end_x, start_y, end_y), 2, 2))
+}
+make_adj_line <- function(adj_start_x, adj_start_y, adj_end_x, adj_end_y) {
+  st_linestring(matrix(c(adj_start_x, adj_end_x, adj_start_y, adj_end_y), 2, 2))
 }
 
 # https://stackoverflow.com/questions/51918536/r-create-linestring-from-two-points-in-same-row-in-dataframe
 
 add_linestring_to_df <- function(event_data) {
   event_data %>% 
-    mutate_at(.vars = vars(ends_with("_y"), ends_with("_x"), "event_sec"), .funs = as.double) %>% 
     select(start_x, end_x, start_y, end_y) %>% 
     purrr::pmap(make_line)  %>% 
     st_as_sfc() %>% 
@@ -167,7 +175,20 @@ add_linestring_to_df <- function(event_data) {
     st_sf() 
 }
 
-england <- add_linestring_to_df(england)
+add_adj_linestring_to_df <- function(event_data) {
+  event_data %>% tibble::as_tibble() %>% select(-line_geometry) %>% 
+    select(adj_start_x, adj_end_x, adj_start_y, adj_end_y) %>% 
+    purrr::pmap(make_adj_line)  %>% 
+    st_as_sfc() %>% 
+    {tibble(event_data, adj_line_geometry = .)} %>% 
+    st_sf() 
+}
+
+england <- england %>% add_linestring_to_df() %>% add_adj_linestring_to_df()
+france <- add_linestring_to_df(france)
+germany <- add_linestring_to_df(germany)
+italy <- add_linestring_to_df(italy)
+spain <- add_linestring_to_df(spain)
 
 
 england %>% saveRDS("data/england.Rds")

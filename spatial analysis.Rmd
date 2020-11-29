@@ -1,0 +1,367 @@
+---
+title: "spatial"
+author: "Ethan Shen"
+date: "11/27/2020"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(sf)
+england <- readRDS("data/england.Rds")
+england %>% head() %>% View
+```
+
+```{r}
+boxes = list()
+for (i in 0:19) {
+  for (j in 0:19) {
+    boxes[[(i+1) + (20*j)]] <- list(matrix(c(i*5,j*5, 5+i*5,j*5, 5+i*5,5+j*5, i*5,5+j*5, i*5,j*5), ncol=2, byrow=TRUE)) %>% 
+      st_polygon() %>% st_geometry() %>% as_tibble() 
+  }
+}
+boxes_df <- do.call(rbind, boxes) %>% st_as_sf() %>% rename(boxes_geom = geometry)
+
+#boxes_df %>% cbind(val = rnorm(400,0,1)) %>% ggplot() + geom_sf(aes(fill=val)) + xlim(0,100) + ylim(0,100)
+
+boxes_adj = list()
+for (i in 0:20) {
+  for (j in 0:13) {
+    boxes_adj[[(i+1) + (21*j)]] <- list(matrix(c(i*5,j*5, 5+i*5,j*5, 5+i*5,5+j*5, i*5,5+j*5, i*5,j*5), ncol=2, byrow=TRUE)) %>% 
+      st_polygon() %>% st_geometry() %>% as_tibble() 
+  }
+}
+boxes_adj_df <- do.call(rbind, boxes_adj) %>% st_as_sf() %>% rename(boxes_geom = geometry)
+
+#boxes_adj_df %>% cbind(val = rnorm(294,0,1)) %>% ggplot() + geom_sf(aes(fill=val)) + xlim(0,105) + ylim(0,70)
+save(boxes, boxes_adj, boxes_df, boxes_adj_df, file = "boxes.Rda")
+```
+
+```{r}
+first_pass = england[1,]$line_geometry
+england[1:6,] %>% 
+  ggplot() + 
+  geom_sf(aes(geometry = line_geometry))
+england[1:6,] %>% 
+  ggplot() + 
+  geom_sf(aes(geometry = adj_line_geometry))
+
+boxes_df %>% st_intersects(first_pass) %>% purrr::map_int(length) %>% {which(. > 0)}
+```
+
+```{r}
+# START  HERE
+first_game <- readRDS("first_game.Rds")
+load("boxes.Rda")
+
+first_game <- first_game %>% 
+  filter(match_id == 2499719) %>%
+  group_by(match_id, match_period) %>% 
+  mutate(EW_dist = abs(end_x - start_x),
+         NS_dist = abs(end_y - start_y),
+         total_dist = sqrt(EW_dist^2 + NS_dist^2),
+         
+         time_diff = event_sec - lag(event_sec),
+         time_diff = ifelse(is.na(time_diff), event_sec, time_diff),
+         
+         EW_speed = if_else(time_diff == 0, EW_dist, EW_dist / time_diff),
+         NS_speed = if_else(time_diff == 0, NS_dist, NS_dist / time_diff),
+         total_speed = if_else(time_diff == 0, total_dist, total_dist / time_diff)
+  ) %>% 
+  mutate(adj_EW_dist = abs(adj_end_x - adj_start_x),
+         adj_NS_dist = abs(adj_end_y - adj_start_y),
+         adj_total_dist = sqrt(adj_EW_dist^2 + adj_NS_dist^2),
+         
+         adj_EW_speed = if_else(time_diff == 0, adj_EW_dist, adj_EW_dist / time_diff),
+         adj_NS_speed = if_else(time_diff == 0, adj_NS_dist, adj_NS_dist / time_diff),
+         adj_total_speed = if_else(time_diff == 0, adj_total_dist, adj_total_dist / time_diff)
+  ) %>% 
+  ungroup() 
+
+# checking first pass is correct
+boxes_df %>% 
+  slice(87 ,107, 108 ,128 ,148, 149, 169, 170, 190, 210) %>% 
+  ggplot() + 
+  geom_sf() + 
+  geom_sf(data = first_game %>% tbl_df() %>% select(-adj_line_geometry) %>% slice(1) %>% st_as_sf()) + xlim(0,100) +ylim(0,100)
+
+boxes_adj_df %>% 
+  slice(70 , 71 , 92,  93 ,114, 115 ,136 ,137 ,158) %>% ggplot() + geom_sf() + 
+  geom_sf(data = first_game %>% tbl_df() %>% select(-line_geometry) %>% slice(1) %>% st_as_sf()) + xlim(0,105) +ylim(0,70)
+#first_game %>% saveRDS("first_game.Rds")
+# first_game$EW_dist %>% summary
+# first_game$NS_dist %>% summary
+# first_game$total_dist %>% summary
+# first_game$time_diff %>% summary
+# first_game$EW_speed %>% summary
+# first_game$NS_speed %>% summary
+# first_game$total_speed %>% summary
+first_game %>% 
+  filter(total_speed <= 1 + 85.58981, total_speed >= 85.58981-1)
+```
+
+```{r}
+make_wys_intersections <- function(event_data, box) {
+  # LINESTRING objects created from Wyscout coordinates 
+  
+  if (is.null(event_data$line_geometry)) stop("Please create dataframe with a LINESTRING geometry column.")
+  
+  event_data_passes <- event_data %>% filter(event_name == "Pass")
+  intersections = list()
+  
+  for (i in 1:nrow(event_data_passes)) {
+    intersections[[i]] <- box %>% 
+      st_intersects(event_data_passes[i,]$line_geometry) %>% 
+      purrr::map_int(length) %>% 
+      {which(. > 0)} 
+  }
+  return(intersections)
+}
+
+intersections <- make_wys_intersections(first_game, boxes_df)
+
+make_adj_intersections <- function(event_data, box) {
+  # LINESTRING objects created from transformed/rescaled coordinates 
+  
+  if (is.null(event_data$adj_line_geometry)) stop("Please create dataframe with a LINESTRING geometry column.")
+  
+  event_data_passes <- event_data %>% filter(event_name == "Pass")
+  intersections = list()
+  
+  for (i in 1:nrow(event_data_passes)) {
+    intersections[[i]] <- box %>% 
+      st_intersects(event_data_passes[i,]$adj_line_geometry) %>% 
+      purrr::map_int(length) %>% 
+      {which(. > 0)} 
+  }
+  return(intersections)
+}
+
+adj_intersections <- make_adj_intersections(first_game, boxes_adj_df)
+```
+
+```{r}
+fill_Wys_grids <- function(event_data, box, intersection_list, metric) {
+  total_speeds = list()
+  for (b in 1:nrow(box)){
+    total_speeds[[b]] <- c(NA)
+  }
+  
+  event_data_passes <- event_data %>% filter(event_name == "Pass")
+  
+  for (i in 1:nrow(event_data_passes)) {
+    for (j in intersection_list[[i]]) {
+      total_speeds[[j]] <- c(total_speeds[[j]], event_data_passes %>% tibble::as_tibble() %>% {.[i,]$total_speed})
+    } 
+  }
+  agg_total_speeds <- map_dbl(total_speeds, metric, na.rm=TRUE) 
+  return(agg_total_speeds)
+}
+
+mean_Wys_total_speeds <- fill_Wys_grids(first_game, boxes_df, intersections, mean)
+```
+
+
+```{r}
+fill_rescaled_grids <- function(event_data, box, intersection_list, metric) {
+  total_speeds = list()
+  for (b in 1:nrow(box)){
+    total_speeds[[b]] <- c(NA)
+  }
+  
+  event_data_passes <- event_data %>% filter(event_name == "Pass")
+  
+  for (i in 1:nrow(event_data_passes)) {
+    for (j in intersection_list[[i]]) {
+      total_speeds[[j]] <- c(total_speeds[[j]], event_data_passes %>% tibble::as_tibble() %>% {.[i,]$adj_total_speed})
+    } 
+  }
+  agg_total_speeds <- map_dbl(total_speeds, metric, na.rm=TRUE) 
+  return(agg_total_speeds)
+}
+
+mean_rescaled_total_speeds <- fill_rescaled_grids(first_game, boxes_adj_df, adj_intersections, mean)
+```
+
+```{r}
+save(intersections, adj_intersections, mean_Wys_total_speeds, mean_rescaled_total_speeds, file = "first_game_grids.Rda")
+```
+
+```{r}
+# which grids  have very  high speeds  
+boxes_adj_df %>% 
+  mutate(speed = mean_rescaled_total_speeds) %>% 
+  mutate(rowid = row_number()) %>% 
+  arrange(desc(speed)) %>% 
+  slice(1:5) %>% 
+  pull(rowid) -> high_speed_rowids
+
+purrr::map_lgl(.x = adj_intersections,
+               .f = ~ any(high_speed_rowids %in% .))
+
+# passes that occured in grids with very high speeds
+high_speed_rows <- which(purrr::map_lgl(.x = adj_intersections,
+                                        .f = ~ any(high_speed_rowids %in% .)))
+
+first_game_passes[high_speed_rows,] %>% 
+  select(event_name, sub_event_name, starts_with("adj_"))
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+pitch_length <- 105
+pitch_width <- 70
+boxes_adj_df %>% 
+  mutate(`Speed (m/s)` = mean_rescaled_total_speeds) %>% 
+  ggplot() + geom_sf(aes(fill = `Speed (m/s)`), color = NA) +
+  geom_point(x = pitch_length / 2, y = pitch_width / 2, shape = 1, size = 20, color = "#252525") +
+  geom_rect(xmin = 0, 
+            xmax = 16.5, 
+            ymin = (pitch_width - 40.3) / 2, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3,
+            fill = "white", color = "#252525", alpha = 0) +
+  geom_rect(xmin = pitch_length - 16.5, 
+            xmax = pitch_length, 
+            ymin = (pitch_width - 40.3) / 2, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3,
+            fill = "white", color = "#252525", alpha = 0) +
+  geom_rect(xmin = 0, 
+            xmax = 5.5, 
+            ymin = (pitch_width - 40.3) / 2 + 11, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+            fill = "white", color = "#252525", alpha = 0) +
+  geom_rect(xmin = pitch_length - 5.5, 
+            xmax = pitch_length, 
+            ymin = (pitch_width - 40.3) / 2 + 11, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+            fill = "white", color = "#252525", alpha = 0) +
+  geom_segment(aes(x = 0, y = 0, xend = pitch_length, yend = 0), color = "#252525") + 
+  geom_segment(aes(x = 0, y = 0, xend = 0, yend = pitch_width), color = "#252525") +
+  geom_segment(aes(x = pitch_length, y = 0, xend = pitch_length, yend = pitch_width), color = "#252525") +
+  geom_segment(aes(x = 0, y = pitch_width, xend = pitch_length, yend = pitch_width), color = "#252525") +
+  geom_segment(aes(x = pitch_length / 2, y = 0, xend = pitch_length / 2, yend = pitch_width), color = "#252525") +
+  scale_fill_gradient(low = "#ffffb2", high = "#bd0026", na.value = "#cdff9c") +
+  scale_x_continuous(breaks = seq(0, pitch_length, 15), labels = seq(0, pitch_length, 15)) +
+  scale_y_continuous(breaks = seq(0, pitch_width, 10), labels = seq(0, pitch_width, 10)) +
+  theme_bw() +
+  labs(x = "", y = "") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#cdff9c"), 
+        axis.line = element_line(colour = "#252525")) + 
+  geom_sf(data = first_game %>% tbl_df() %>% select(-line_geometry) %>% filter(poss_id == 1) %>% st_as_sf()) + 
+  geom_segment(data = first_game %>% filter(poss_id == 1),
+               aes(x = adj_start_x,
+                   y = adj_start_y,
+                   xend = adj_end_x,
+                   yend = adj_end_y),
+               arrow = arrow(length=unit(0.30,"cm"), type = "closed")) + 
+  #geom_line(data = first_game %>% filter(poss_id == 1), aes(x = adj_start_x, y = adj_start_y), arrow = arrow(type = "closed", length = unit(0.075, "inches"))) +
+  geom_text(data = first_game %>% 
+              left_join(player_data, by = c("player_id" = "wyId")) %>% 
+              filter(poss_id == 1), 
+            aes(x = adj_start_x,
+                y = adj_start_y,
+                label = stringi::stri_unescape_unicode(lastName)), vjust = -1, size = 3)
+
+```
+
+
+```{r}
+first_game %>% 
+  filter(end_y == 100)
+first_game %>% 
+  filter(poss_id == 148)
+first_game %>% 
+  filter(time_diff >= 10,  event_name == "Pass")
+
+first_game %>% filter(poss_id == 261 | poss_id == 262)
+```
+
+```{r}
+england %>% 
+  filter(event_name == "Pass") %>% 
+  mutate_at(.vars = vars(ends_with("_y"), ends_with("_x")), .funs = as.integer) %>%
+  ggplot(aes(x = (start_x / 100) * pitch_length, y = (start_y / 100) * pitch_width)) +
+  stat_bin_2d(aes(fill = after_stat(count)), binwidth = c(5, 5)) +
+  geom_vline(xintercept = pitch_length / 2, color = "#696969") +
+  geom_point(x = pitch_length / 2, y = pitch_width / 2, shape = 1, size = 20) +
+  geom_rect(xmin = 0, 
+            xmax = 16.5, 
+            ymin = (pitch_width - 40.3) / 2, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3,
+            fill = "white", color = "#696969", alpha = 0) +
+  geom_rect(xmin = pitch_length - 16.5, 
+            xmax = pitch_length, 
+            ymin = (pitch_width - 40.3) / 2, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3,
+            fill = "white", color = "#696969", alpha = 0) +
+  geom_rect(xmin = 0, 
+            xmax = 5.5, 
+            ymin = (pitch_width - 40.3) / 2 + 11, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+            fill = "white", color = "#696969", alpha = 0) +
+  geom_rect(xmin = 
+              pitch_length - 5.5, 
+            xmax = pitch_length, 
+            ymin = (pitch_width - 40.3) / 2 + 11, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+            fill = "white", color = "#696969", alpha = 0) +
+  geom_segment(aes(x = 25,  xend = 25, y = 0, yend = 70)) + 
+  geom_segment(aes(x = 80,  xend = 80, y = 0, yend = 70)) + 
+  scale_fill_gradient(low = "#ffffb2", high = "#bd0026") +
+  scale_x_continuous(breaks = seq(0, pitch_length, 15), labels = seq(0, pitch_length, 15)) +
+  scale_y_continuous(breaks = seq(0, pitch_width, 10), labels = seq(0, pitch_width, 10)) +
+  theme_bw() +
+  labs(x = "", y = "") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#cdff9c"), 
+        axis.line = element_line(colour = "#696969"))
+```
+
+
+```{r}
+# SPEED FOR EACH POSSESSION 
+first_game %>%
+  filter(poss_id %in% c(1,2)) %>% 
+  group_by(poss_id) %>% 
+  slice(c(1, n())) %>%
+  ungroup() %>% 
+  select(adj_start_x, adj_start_y, adj_end_x, adj_end_y, event_sec, line_geometry, adj_line_geometry)
+mutate(EW_dist = abs(end_x - start_x),
+       NS_dist = abs(end_y - start_y),
+       total_dist = sqrt(EW_dist^2 + NS_dist^2),
+       
+       time_diff = event_sec - lag(event_sec),
+       time_diff = ifelse(is.na(time_diff), event_sec, time_diff),
+       
+       EW_speed = if_else(time_diff == 0, EW_dist, EW_dist / time_diff),
+       NS_speed = if_else(time_diff == 0, NS_dist, NS_dist / time_diff),
+       total_speed = if_else(time_diff == 0, total_dist, total_dist / time_diff)
+) 
+pass_counter_df <- first_game %>%
+  tibble::as_tibble() %>% 
+  mutate(rowid = row_number()) %>% 
+  select(rowid, event_name, poss_id) %>% 
+  filter(event_name == "Pass")  %>% 
+  group_by(poss_id) %>% 
+  #mutate(is_pass = ifelse(event_name == "Pass", 1, 0)) %>% 
+  mutate(pass_counter = unlist(map(rle(event_name)$lengths, seq))) %>% 
+  ungroup() 
+
+first_game %>% 
+  mutate(rowid = row_number()) %>% 
+  left_join(pass_counter_df %>% select(-event_name, -poss_id),
+            by = "rowid") 
+
+```
+
+```{r}
+
+```
+
+
