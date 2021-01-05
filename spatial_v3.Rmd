@@ -1,0 +1,152 @@
+---
+title: "spatial v3"
+author: "Ethan Shen"
+date: "1/4/2021"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(sf)
+
+source("source.R")
+```
+
+# Load Data 
+
+```{r}
+england_speeds <- readRDS("data/events/england.Rds")  %>% 
+  mutate(rowid = row_number()) %>%
+  group_by(match_id, match_period, poss_id) %>% 
+  mutate(duration = lead(event_sec) - (event_sec)) %>% 
+  ungroup() %>% 
+  filter(!is.na(duration)) %>% 
+  mutate(adj_EW_dist = abs(adj_end_x - adj_start_x),
+         adj_NS_dist = abs(adj_end_y - adj_start_y),
+         adj_total_dist = sqrt(adj_EW_dist^2 + adj_NS_dist^2),
+         
+         adj_EW_speed = if_else(duration == 0, adj_EW_dist, adj_EW_dist / duration),
+         adj_NS_speed = if_else(duration == 0, adj_NS_dist, adj_NS_dist / duration),
+         adj_total_speed = if_else(duration == 0, adj_total_dist, adj_total_dist / duration)
+  ) %>% 
+  filter(event_name == "Pass" | sub_event_name %in% c("Free Kick", "Throw in", "Goal kick", "Corner","Free kick cross"))
+```
+
+# Events with very large "Durations" (198/326089 above 20 seconds),  can ignore for now
+
+```{r}
+england_speeds %>% 
+  #filter(match_id == 2499719) %>% 
+  #filter(event_name == "Pass" | sub_event_name %in% c("Free Kick", "Throw in", "Goal kick", "Corner","Free kick cross")) %>% 
+  filter(duration >= 20) %>% pull(rowid) -> highspeed
+
+england_speeds %>% 
+  filter(rowid %in% c(highspeed-1, highspeed,  highspeed+2,  highspeed+3)) %>% 
+  arrange(rowid) %>% 
+  select(poss_id,  event_name, event_sec, duration) 
+
+`%not_in%` <- purrr::negate(`%in%`)
+
+england_speeds %>% 
+  #filter(event_name == "Pass" | sub_event_name %in% c("Free Kick", "Throw in", "Goal kick", "Corner","Free kick cross")) %>% 
+  filter(rowid %not_in% highspeed) %>% 
+  select(poss_id,  event_name, event_sec, duration) %>% 
+  filter(!is.na(duration)) %>%  
+  pull(duration) %>% hist
+```
+
+# Number of Events per Possession
+
+num_events is how many events per poss
+num_occurances is how many X-event possessions there are 
+
+```{r}
+some_matches <- england_speeds$match_id %>% unique %>% sample(38)
+poss_cnt <- england_speeds %>% 
+  #filter(match_id %in% some_matches) %>% 
+  group_by(match_id, match_period, poss_id) %>% 
+  count(name = "num_events") 
+
+poss_cnt %>% 
+  ggplot(aes(x = num_events)) + geom_histogram()
+poss_cnt %>% ungroup() %>% 
+  group_by(num_events) %>% 
+  count(name = "num_occurances")
+```
+
+obviously filtering out all one-pass/one-free kick possessions (THIS IS FILTERING AFTER ALREADY REMOVING DUELS,ETC)
+
+```{r}
+poss_cnt_tbl <- england_speeds %>% 
+  tbl_df() %>% 
+  group_by(match_id, match_period, poss_id) %>% 
+  mutate(num_events = n()) 
+```
+
+# should 2-event possessions be filtered out?
+```{r}
+event_poss2 <- poss_cnt_tbl %>% 
+  filter(num_events == 2) %>% 
+  mutate(total_dist_traveled = sum(adj_total_dist)) %>%  # this is  total distance (avg of distance of  pass 1 + pass 2)
+
+  mutate(x_dist_traveled = lead(adj_end_x) - adj_start_x,
+         y_dist_traveled = lead(adj_end_y) - adj_start_y,
+         dist_traveled = sqrt(x_dist_traveled^2 + y_dist_traveled^2)) %>% # this is distance from start location to end location
+  filter(!is.na(dist_traveled))
+
+
+event_poss2 %>% 
+  ggplot(aes(x = total_dist_traveled)) + geom_histogram()
+event_poss2$total_dist_traveled %>% quantile()
+event_poss2  %>% 
+  ggplot(aes(x = dist_traveled)) + geom_histogram()
+event_poss2$dist_traveled %>% quantile(na.rm=TRUE)
+
+```
+
+# should 3-event possessions be filtered out?
+```{r}
+
+event_poss3 <- poss_cnt_tbl %>% 
+  filter(num_events == 3) %>% 
+  mutate(total_dist_traveled = sum(adj_total_dist)) %>%  # this is  total distance (avg of distance of  pass 1 + pass 2 + pass3)
+  slice(c(1, n())) %>% 
+  mutate(x_dist_traveled = lead(adj_end_x) - adj_start_x,
+         y_dist_traveled = lead(adj_end_y) - adj_start_y,
+         dist_traveled = sqrt(x_dist_traveled^2 + y_dist_traveled^2)) %>% # this is distance from start location to end location
+  filter(!is.na(dist_traveled))
+
+event_poss3 %>% 
+  ggplot(aes(x = total_dist_traveled)) + geom_histogram()
+event_poss3$total_dist_traveled %>% quantile()
+
+
+event_poss3  %>% 
+  ggplot(aes(x = dist_traveled)) + geom_histogram()
+event_poss3$dist_traveled %>% quantile(na.rm=TRUE)
+
+```
+
+## average distance of each pass in poss with >2  events 
+
+```{r}
+more_than_2_events <- poss_cnt_tbl %>% 
+  filter(num_events >= 3)  %>% 
+  mutate(total_dist_traveled = sum(adj_total_dist)) %>% 
+  slice(c(1, n())) %>% 
+  mutate(x_dist_traveled = lead(adj_end_x) - adj_start_x,
+         y_dist_traveled = lead(adj_end_y) - adj_start_y,
+         dist_traveled = sqrt(x_dist_traveled^2 + y_dist_traveled^2))
+
+
+more_than_2_events %>% 
+  ggplot(aes(x = total_dist_traveled)) + geom_histogram()
+more_than_2_events$total_dist_traveled %>% quantile()
+
+
+more_than_2_events  %>% 
+  ggplot(aes(x = dist_traveled)) + geom_histogram()
+more_than_2_events$dist_traveled %>% quantile(na.rm=TRUE)
+```
+
+
