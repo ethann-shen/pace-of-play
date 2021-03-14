@@ -1,0 +1,640 @@
+--- 
+title: "Nifty Neato Bookdown"
+subtitle: "Based on the book and work of Yihui Xie"
+author: "Your Name Here"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+documentclass: book
+bibliography: [book.bib, packages.bib]
+biblio-style: apalike
+link-citations: yes
+description: "This is a minimal example of using the bookdown package to write a book. The output format for this example is bookdown::gitbook."
+knit: "bookdown::render_book"
+header-includes:
+  - \usepackage{floatrow}
+
+---
+
+# Prerequisites
+
+This is a _sample_ book written in **Markdown**. You can use anything that Pandoc's Markdown supports, e.g., a math equation $a^2 + b^2 = c^2$.
+
+The **bookdown** package can be installed from CRAN or Github:
+
+```{r eval=FALSE}
+install.packages("bookdown")
+# or the development version
+# devtools::install_github("rstudio/bookdown")
+```
+
+Remember each Rmd file contains one and only one chapter, and a chapter is defined by the first-level heading `#`.
+
+To compile this example to PDF, you need XeLaTeX. You are recommended to install TinyTeX (which includes XeLaTeX): <https://yihui.org/tinytex/>.
+
+```{r include=FALSE}
+# automatically create a bib database for R packages
+knitr::write_bib(c(
+  .packages(), 'bookdown', 'knitr', 'rmarkdown'
+), 'packages.bib')
+```
+
+
+Learn more about bookdown https://bookdown.org/yihui/bookdown
+
+<!--chapter:end:index.Rmd-->
+
+# Introduction {#intro}
+
+Pace-of-play is an important characteristic in possession-based / team-based sports that can heavily influence the style and outcome of a match. In soccer, pace-of-play has been defined as the number of shots taken or total number of successful passes per game. The main limitation of event-based pace metrics is that they fail to appropriately account for the circumstances under which they are performed. For example, the total number of successful passes does not differentiate between a pass made between two defenders in their own half and a pass from a winger trying to create a goal-scoring opportunity. 
+
+Pace-of-play has also been measured as the distance covered over time within a team’s possessions. However, short possessions do not provide an accurate measurement of pace. For example, a possession consisting of a goal kick and a pass may travel at a fast speed, but does not contribute to a team’s overall pace.  
+
+The aim of this work is to analyze pace-of-play for possessions that consist of three or more pass or free kick events, as these types of events are more definitive of a team’s pace. The use of spatio-temporal event data allows for more granular measurements of pace-of-play, such as measures of speed between consecutive events and between different regions on the pitch. 
+
+In addition, we seek to build a model using these metrics (add more when we get to modeling).
+
+Our research goals are three-fold:
+Examine how pace-of-play varies across the pitch, between different players and across different professional leagues.  
+Quantify variations in pace at the player and team level and provide metrics to assess how well players and teams attack/defend pace. 
+Evaluate effectiveness of pace metrics by incorporating them into models that predict the outcome of a match. 
+
+Our results show that pace is ____, and are good/bad variables when predicting the outcome of a match. 
+
+The remainder of this paper is organized as follows. Section 2 discusses the related work that analyzes pace-of-play in soccer and other team sports and Section 3 describes the dataset / datasets. Section 4 introduces the pace-of-play metrics and the modeling methods. Section 5 presents the results of the methodology. Sections 6 and 7 provide a discussion of our findings and a conclusion, respectively.  
+
+<!--chapter:end:01-intro.Rmd-->
+
+# Literature
+
+Here is a review of existing methods.
+
+<!--chapter:end:02-literature.Rmd-->
+
+# Data
+
+```{r include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/ethanshen/Documents/College/Fa20/pace-of-play")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(sf)
+library(kableExtra)
+library(scoutr)
+
+knitr::opts_chunk$set(echo = FALSE, 
+                      message=FALSE, 
+                      warning=FALSE)
+```
+
+```{r}
+#setwd("/Users/ethanshen/Documents/College/Fa20/pace-of-play")
+load("grids5x5.Rda")
+load("zones.Rda")
+load("first_game.Rda")
+```
+
+
+```{r example-data, out.width="50%"}
+example <- first_game %>% #group_by(poss_id) %>% mutate(n = n()) %>% filter(event_name == "Shot", n >= 5)#head(1000) %>% select(match_id, team_id, sub_event_name, event_sec, poss_id, starts_with("start_"), starts_with("end_")) 
+  filter(match_id == "2499719", poss_id == 8) %>% 
+  tbl_df() %>% 
+  tail(5) %>% 
+  mutate(start = paste0("(", start_x, ", ", start_y %>% as.double(), ")"),
+         end = paste0("(", end_x, ", ", round(end_y,1), ")")) 
+
+```
+
+\newfloatcommand{btabbox}{table}
+
+\begin{figure}[H]
+  \begin{floatrow}
+    \ffigbox{%
+```{r, fig.align = "right", echo = F}
+
+example %>% 
+  select(match_id, event_name, event_sec, start, end) %>% #kable()
+  kableExtra::kable(caption = "Representation of a play consisting of 5 actions in a match between Arsenal and Leicester City",
+                    col.names = c("Match ID", "Event Name", "Timestamp", "$(x,y)_{start}$", "$(x,y)_{end}$")) %>% 
+  kable_styling(full_width = F)
+```
+    }{\caption{A figure}}
+
+    \btabbox{%
+```{r, fig.align = "right", echo = F}
+example %>% 
+  ggplot()  +
+  fc_annotate_pitch(palette = "classic") +
+  fc_annotate_arrow(x = 52.5, y = -10) +
+  fc_theme_bw() + 
+  geom_segment(aes(x = start_x, y = start_y, xend = end_x,  yend = end_y),
+               arrow = arrow(length = unit(0.03, "npc")))
+```
+    }{\caption{A table}}
+  \end{floatrow}
+\end{figure}
+
+
+
+
+```{r eval=FALSE}
+pitch_length <- 105
+pitch_width <- 70
+grids5x5 %>% 
+  ggplot() +
+  geom_segment(aes(x = 0, y = 0, xend = pitch_length, yend = 0), color = "#F8FAF7", size = 0.2) + 
+  geom_segment(aes(x = 0, y = 0, xend = 0, yend = pitch_width), color = "#F8FAF7", size = 0.2) +
+  geom_segment(aes(x = pitch_length, y = 0, xend = pitch_length, yend = pitch_width), color = "#F8FAF7", size = 0.2) +
+  geom_segment(aes(x = 0, y = pitch_width, xend = pitch_length, yend = pitch_width), color = "#F8FAF7", size = 0.2) +
+  geom_segment(aes(x = pitch_length / 2, y = 0, xend = pitch_length / 2, yend = pitch_width), color = "#F8FAF7", size = 0.2) +
+  geom_point(x = pitch_length / 2, y = pitch_width / 2, shape = 1, size = 20, color = "#F8FAF7") +
+  geom_rect(xmin = 0, 
+            xmax = 16.5, 
+            ymin = (pitch_width - 40.3) / 2, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3,
+            fill = "#F8FAF7", color = "#F8FAF7", alpha = 0, size = 0.2) +
+  geom_rect(xmin = pitch_length - 16.5, 
+            xmax = pitch_length, 
+            ymin = (pitch_width - 40.3) / 2, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3,
+            fill = "#F8FAF7", color = "#F8FAF7", alpha = 0, size = 0.2) +
+  geom_rect(xmin = 0, 
+            xmax = 5.5, 
+            ymin = (pitch_width - 40.3) / 2 + 11, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+            fill = "#F8FAF7", color = "#F8FAF7", alpha = 0, size = 0.2) +
+  geom_rect(xmin = pitch_length - 5.5, 
+            xmax = pitch_length, 
+            ymin = (pitch_width - 40.3) / 2 + 11, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+            fill = "#F8FAF7", color = "#F8FAF7", alpha = 0, size = 0.2) +
+  theme_bw() +
+  labs(x = "", y = "") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#629A52"), 
+        axis.line = element_line(colour = "#F8FAF7")) + 
+  geom_text(aes(x = 96.85, y = 53, label = "Penalty box") , vjust = 0.5) +  
+  geom_text(aes(x = 8.25, y = 58, label = "6-yard box") , vjust = 0.5) + 
+  geom_segment(aes(x = 8.25, y = 57, xend = 2.75, yend = 38), # arrow pointing to 6-yard box 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             type = "closed", angle = 30)) + 
+  geom_segment(aes(x = 86.65, xend = 86.65, y = 14.85, yend = 55.15), # penalty box vertical
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 82, y = 35, label = "40.3 m")) + 
+  geom_segment(aes(x = 88.5, xend = 104.8, y = 13, yend = 13), # penalty box horizontal arrow 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 96.75, y = 11, label = "16.5 m")) +
+  geom_segment(aes(x = 7.35, xend = 7.35, y = 25.85, yend = 44.15), # 6-yard box vertical
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 12, y = 35, label = "18.3 m")) + 
+  geom_segment(aes(x = 0.2, xend = 5.5, y = 24, yend = 24), # 6-yard box horizontal arrow 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 2.75, y = 22, label = "5.5 m")) +
+  scale_x_continuous(limits=c(0, 105), breaks = seq(0, 100, by = 20)) +
+  scale_y_continuous(limits=c(0, 70), breaks = seq(0, 70, by = 10))
+```
+
+```{r}
+ggplot() +
+  fc_annotate_pitch() +
+  theme_void() + 
+  geom_text(aes(x = 96.85, y = 53, label = "Penalty box") , vjust = 0.5) +  
+  geom_text(aes(x = 8.25, y = 58, label = "6-yard box") , vjust = 0.5) + 
+  geom_segment(aes(x = 8.25, y = 57, xend = 2.75, yend = 38), # arrow pointing to 6-yard box 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             type = "closed", angle = 30)) + 
+  geom_segment(aes(x = 86.65, xend = 86.65, y = 14.85, yend = 55.15), # penalty box vertical
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 82, y = 35, label = "40.3 m")) + 
+  geom_segment(aes(x = 88.5, xend = 104.8, y = 13, yend = 13), # penalty box horizontal arrow 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 96.75, y = 11, label = "16.5 m")) +
+  geom_segment(aes(x = 7.35, xend = 7.35, y = 25.85, yend = 44.15), # 6-yard box vertical
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 12, y = 38, label = "18.3 m")) + 
+  geom_segment(aes(x = 0.2, xend = 5.5, y = 24, yend = 24), # 6-yard box horizontal arrow 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 2.75, y = 22, label = "5.5 m")) 
+```
+
+
+<!--chapter:end:03-data.Rmd-->
+
+# Methods
+
+```{r setup4, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/ethanshen/Documents/College/Fa20/pace-of-play")
+library(tidyverse)
+library(sf)
+library(kableExtra)
+knitr::opts_chunk$set(echo = FALSE, 
+                      message=FALSE, 
+                      warning=FALSE)
+```
+
+We describe our methods in this chapter.
+
+```{r table-of-events}
+events <- readRDS("data/events/england.Rds") %>% sample_n(20000)
+
+all_events <- events %>% 
+  tbl_df() %>% 
+  ungroup() %>% 
+  select(event_name, sub_event_name) %>% 
+  group_by(event_name, sub_event_name) %>% 
+  distinct() %>% 
+  arrange(event_name, sub_event_name) 
+
+all_events %>% 
+  filter(event_name < "Goalkeeper") %>% 
+  kable(col.names = c("Event Name", "Sub-Event Name")) %>% 
+  collapse_rows(columns = 1, valign = "top") %>%
+  kable_styling(full_width = FALSE, position = "float_left", fixed_thead = T)
+all_events %>% 
+  filter(event_name >="Goalkeeper") %>% 
+  kable(col.names = c("Event Name", "Sub-Event Name")) %>% 
+  collapse_rows(columns = 1, valign = "top") %>%
+  kable_styling(full_width = FALSE, position = "left", fixed_thead = T) 
+```
+
+```{r}
+library(ggsoccer)
+
+draw_pitch <- function(plot, pitch_length = 105, pitch_width = 70, color = "#252525") {
+  plot + 
+    geom_point(x = pitch_length / 2, y = pitch_width / 2, shape = 1, size = 20, color = color) +
+    geom_rect(xmin = 0, 
+              xmax = 16.5, 
+              ymin = (pitch_width - 40.3) / 2, 
+              ymax = (pitch_width - 40.3) / 2 + 40.3,
+              fill = "white", color = color, alpha = 0) +
+    geom_rect(xmin = pitch_length - 16.5, 
+              xmax = pitch_length, 
+              ymin = (pitch_width - 40.3) / 2, 
+              ymax = (pitch_width - 40.3) / 2 + 40.3,
+              fill = "white", color = color, alpha = 0) +
+    geom_rect(xmin = 0, 
+              xmax = 5.5, 
+              ymin = (pitch_width - 40.3) / 2 + 11, 
+              ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+              fill = "white", color = color, alpha = 0) +
+    geom_rect(xmin = pitch_length - 5.5, 
+              xmax = pitch_length, 
+              ymin = (pitch_width - 40.3) / 2 + 11, 
+              ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+              fill = "white", color = color, alpha = 0) +
+    geom_segment(aes(x = 0, y = 0, xend = pitch_length, yend = 0), color = color) + 
+    geom_segment(aes(x = 0, y = 0, xend = 0, yend = pitch_width), color = color) +
+    geom_segment(aes(x = pitch_length, y = 0, xend = pitch_length, yend = pitch_width), color = color) +
+    geom_segment(aes(x = 0, y = pitch_width, xend = pitch_length, yend = pitch_width), color = color) +
+    geom_segment(aes(x = pitch_length / 2, y = 0, xend = pitch_length / 2, yend = pitch_width), color = color) +
+    theme_bw() +
+    labs(x = "", y = "") +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.background = element_rect(fill = "#cdff9c"), 
+          axis.line = element_line(colour = color))
+}
+zones %>% 
+  mutate(rowid = 1:8) %>% 
+  ggplot() %>% 
+  draw_pitch(color = "#000000") + 
+  geom_sf(aes(fill = as.factor(rowid)), color = NA, alpha = 0.8) + 
+  geom_sf_label(aes(label = rowid)) + 
+  direction_label(x_label = 52.5, y_label = -2, colour = "#252525") +
+  theme_bw() +
+  labs(fill = "Zone", x = "", y = "") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#cdff9c"), 
+        axis.line = element_line(colour = "#252525")) 
+```
+
+## Poss ID
+
+Before analyzing pace-of-play, we created a possession identifier for each match that indicates the current unique possession in a match. 
+
+New possessions begin after a team demonstrates that it has established control of the ball. This occurs in the following situations: at the start of a half, when the team intercepts or successfully tackles the ball, and after the opposing team last touches the ball before it goes out, commits a foul followed by a freekick, or after a shot is taken. A new possession can also begin even if the same team has possession of the ball. For example, if the ball goes out for a throw in for the attacking team, this indicates a new possession for the same attacking team. In addition, if the attacking team makes a pass after a sequence of duels, this constitutes the same possession. 
+
+should i say anything about average # of possessions / game ? 
+
+## Metrics of Pace 
+
+After creating a possession identifier, we calculated the total, east-west, north-south, and east-only distances traveled and speeds of each event. The EW distances are determined by the difference of the starting and ending x-coordinates and the NS distances are determined by the difference of the starting and ending y-coordinates. The total distances are calculated by sqrt(EW^2 + NS^2). Events are assigned an E-only distance only if the pass travels toward the opposing goal. Although the ball rarely travels in a straight line, the dataset does not provide information about its trajectory, so we assume that the ball travels in a straight line from its starting to ending coordinates. 
+
+Next, we determined the duration between events. For each event, the dataset only provides a timestamp in seconds since the beginning of the current half of the match. Thus, within each possession, the duration for an event was calculated as the difference of the timestamp of the following event and that of the current event.  With this definition of duration, the last event in the possession sequence is not included in the calculation of pace. Finally, the speeds of each event are calculated by dividing the corresponding distance by its duration. 
+
+We used the distance travelled and duration between successive passes and free kicks (except for free kick shots and penalty kicks) during the same possession to calculate four different measures of pace, which include total speed and the east-west, north-south, and east-only components of speed. E-only  speed differs from EW-speed in that only forward progress is measured, and any backward progress is excluded from the analysis. 
+
+When analyzing pace, we only included passes and free kicks (except for free kick shots and penalty kicks) since these events are reliable indicators of the pace of the game. In addition,  we only kept possessions that consist of three or more pass or free kick events, as these types of possessions are more definitive of a team’s pace. For the results and discussion of pace, events will only refer to these passes and free kicks. 
+
+## Spatial Grids Analysis 
+
+We divided the pitch into 294 equal 5x5 meter square grids. Each event’s total, EW, NS and E-only speeds was equally assigned to all grids that intersect the path of the event. For each of the 5x5 grids, we then take the median speed for each of the four different pace metrics. 
+
+## Zonal Analysis 
+
+We divided the pitch into 8 regions, as seen in Figure XXXX. For each zone, we determined which of the 294 5x5 grids are located in or overlap the zone. We then take the mean, median, and standard deviation of the median speed values of those 5x5 grids to determine the aggregate speeds for the zone. 
+
+This method was conducted in favor of another one that assigns an event’s speeds to all zones that intersect the path of the event. Our approach automatically factors in the event’s distance within the zone and is more resistant to outliers. For example, for a pass that intersects N different 5x5 grids in a zone, the zone’s aggregate speed will be affected by that pass’ speed N times instead of just once. This approach is thus more resistant to outliers. 
+
+## Team Level Analyses
+
+Team-level analyses were performed using both the spatial grid and zonal approaches, and done across the five leagues. In each league, we analyzed the 1st, 4th, 11th, 12th, and last place teams with the hopes of better understanding how pace differs among top, middle and bottom-tier teams. 
+
+## Player Level Analyses 
+
+Player-level analyses were performed using only the zonal approach, since there is a much smaller sample size of events. We looked at XXXX groups of players across each league: the top goalscorer(s), and the center back and midfielder on the first place team that played the most minutes during the season. These statistics were taken only from games played within the players’ respective leagues and excluded any other form of national or international competition (i.e. FA Cup, Copa del Rey, Champions League).
+
+
+<!--chapter:end:04-methods.Rmd-->
+
+# Results 
+
+```{r}
+knitr::opts_knit$set(root.dir = "/Users/ethanshen/Documents/College/Fa20/pace-of-play")
+```
+
+```{r}
+library(tidyverse)
+library(sf)
+load("grids5x5.Rda")
+load("zones.Rda")
+load("data/filtered_england_speeds.Rda")
+load("data/filtered_france_speeds.Rda")
+load("data/filtered_germany_speeds.Rda")
+load("data/filtered_italy_speeds.Rda")
+load("data/filtered_spain_speeds.Rda")
+source("source.R")
+load("league_average_speeds.Rda")
+```
+
+maybe should focus more granular things on just the EPL, 
+
+# Exploring Pace 
+
+## Pace-of-Play Across the Pitch
+
+
+```{r}
+library(patchwork)
+load("england/man_city/man_city_total_speeds.Rda")
+load("england/liverpool/liverpool_total_speeds.Rda")
+load("england/bournemouth/bournemouth_total_speeds.Rda")
+load("england/wba/wba_total_speeds.Rda")
+p1 <- create_heatmap(grids5x5, median_man_city_total_speed) + theme_void() + labs(y = "Manchester City") 
+p2 <- create_heatmap(grids5x5, ifelse(median_liverpool_total_speed > 45, NA, median_liverpool_total_speed)) + theme_void()
+p3 <- create_heatmap(grids5x5, median_bournemouth_total_speed) + theme_void()
+p4 <- create_heatmap(grids5x5, median_wba_total_speed) + theme_void()
+#(p1 | p2) / (p3 | p4)
+
+library(ggpubr)
+ggarrange(p1, p2, p3, p4, ncol=2, nrow=2, common.legend = TRUE, legend="bottom")
+
+```
+
+
+## Pace-of-Play by Zone 
+
+- pace by zone  for all leagues
+- pace by zone for 5 EPL teams, and top team from other leagues
+
+
+## Pace-of-Play by League
+
+```{r include=FALSE}
+folders <- c("spain", "germany", "italy", "england", "france")
+files <- list.files(path = paste0("", folders, "/all"))
+files <- files[!str_detect(files, "intersection")]
+leagues <- files %>% str_split("_") %>% map(1) %>% unlist()
+lapply(paste0("", leagues, "/all/", files), load , .GlobalEnv) %>% invisible()
+
+england_all_median_E_speed <- england_all_E_speed %>% map_dbl(median, na.rm=TRUE)
+england_all_median_EW_speed <- england_all_EW_speed %>% map_dbl(median, na.rm=TRUE)
+england_all_median_NS_speed <- england_all_NS_speed %>% map_dbl(median, na.rm=TRUE)
+england_all_median_total_speed <- england_all_total_speed %>% map_dbl(median, na.rm=TRUE)
+england_pass_count <- map(england_all_total_speed, ~.[!is.na(.)]) %>% map_dbl(length)
+
+france_all_median_E_speed <- france_all_E_speed %>% map_dbl(median, na.rm=TRUE)
+france_all_median_EW_speed <- france_all_EW_speed %>% map_dbl(median, na.rm=TRUE)
+france_all_median_NS_speed <- france_all_NS_speed %>% map_dbl(median, na.rm=TRUE)
+france_all_median_total_speed <-  france_all_total_speed %>% map_dbl(median, na.rm=TRUE)
+france_pass_count <- map(france_all_total_speed, ~.[!is.na(.)]) %>% map_dbl(length)
+
+germany_all_median_E_speed <- germany_all_E_speed %>% map_dbl(median, na.rm=TRUE)
+germany_all_median_EW_speed <-  germany_all_EW_speed   %>% map_dbl(median, na.rm=TRUE)
+germany_all_median_NS_speed <-germany_all_NS_speed %>% map_dbl(median, na.rm=TRUE)
+germany_all_median_total_speed <-germany_all_total_speed %>% map_dbl(median, na.rm=TRUE)
+germany_pass_count <- map(germany_all_total_speed, ~.[!is.na(.)]) %>% map_dbl(length)
+
+italy_all_median_E_speed <- italy_all_E_speed %>% map_dbl(median, na.rm=TRUE)
+italy_all_median_EW_speed <-italy_all_EW_speed %>% map_dbl(median, na.rm=TRUE)
+italy_all_median_NS_speed <- italy_all_NS_speed %>% map_dbl(median, na.rm=TRUE)
+italy_all_median_total_speed <- italy_all_total_speed %>% map_dbl(median, na.rm=TRUE)
+italy_pass_count <- map(italy_all_total_speed, ~.[!is.na(.)]) %>% map_dbl(length)
+
+spain_all_median_E_speed <- spain_all_E_speed %>% map_dbl(median, na.rm=TRUE)
+spain_all_median_EW_speed <-spain_all_EW_speed %>% map_dbl(median, na.rm=TRUE)
+spain_all_median_NS_speed <-  spain_all_NS_speed %>% map_dbl(median, na.rm=TRUE)
+spain_all_median_total_speed <- spain_all_total_speed %>% map_dbl(median, na.rm=TRUE)
+spain_pass_count <- map(spain_all_total_speed, ~.[!is.na(.)]) %>% map_dbl(length)
+
+team_median_speed_files <- ls(envir=.GlobalEnv)[str_detect(ls(envir=.GlobalEnv), "all_median")]
+england_files <- team_median_speed_files[str_detect(team_median_speed_files, "england")]
+france_files <- team_median_speed_files[str_detect(team_median_speed_files, "france")]
+germany_files <- team_median_speed_files[str_detect(team_median_speed_files, "germany")]
+italy_files <- team_median_speed_files[str_detect(team_median_speed_files, "italy")]
+spain_files <- team_median_speed_files[str_detect(team_median_speed_files, "spain")]
+
+
+league_average_speeds <- tibble(
+  zone = 1:8 %>% rep(4),
+  direction = str_split(england_files, "_") %>% map(4) %>% unlist() %>% rep(each=8),
+  mean_england_zones = map(england_files, ~fill_zones(zones = zones, speeds = eval(parse(text=.)), metric=mean)) %>% unlist(),
+  mean_france_zones = map(france_files, ~fill_zones(zones = zones, speeds = eval(parse(text=.)), metric=mean)) %>% unlist(),
+  mean_germany_zones = map(germany_files, ~fill_zones(zones = zones, speeds = eval(parse(text=.)), metric=mean)) %>% unlist(),
+  mean_italy_zones = map(italy_files, ~fill_zones(zones = zones, speeds = eval(parse(text=.)), metric=mean)) %>% unlist(),
+  mean_spain_zones = map(spain_files, ~fill_zones(zones = zones, speeds = eval(parse(text=.)), metric=mean)) %>% unlist(),
+) 
+
+save(league_average_speeds, file = "league_average_speeds.Rda")
+```
+
+```{r}
+league_average_speeds %>% 
+  select(zone, direction, mean_england_zones) %>% 
+  tidyr::gather(league, value, mean_england_zones) %>% 
+  mutate(league = str_remove_all(league, "mean_|_zones") %>% str_to_title()) %>% 
+  mutate(direction = ifelse(direction == "total",  "Total", direction) %>% 
+           factor(levels = c("Total", "EW", "NS", "E"))) %>% 
+  ggplot() + 
+  geom_bar(aes(x = as.factor(zone), weight = value, fill = as.factor(zone))) + 
+  facet_grid(.~direction, scales = "free_y") +
+  labs(x = "Zone", y = "Speed (m/s)", title = "EPL Average Speeds") + 
+  theme_bw()  + 
+  theme(legend.position = "none")
+```
+
+```{r}
+league_average_speeds %>% 
+  mutate(`Ligue 1` = map2(mean_england_zones, mean_france_zones, perc_change) %>% unlist(),
+         Bundesliga = map2(mean_england_zones, mean_germany_zones, perc_change) %>% unlist(),
+         `Serie A` = map2(mean_england_zones, mean_italy_zones, perc_change) %>% unlist(),
+         `La Liga` = map2(mean_england_zones, mean_spain_zones, perc_change) %>% unlist()) %>% 
+  select(-(mean_england_zones:mean_spain_zones)) %>% 
+  tidyr::gather(league, value, `Ligue 1`:`La Liga`) %>% 
+  mutate(league = factor(league,  levels = c("Ligue 1", "Bundesliga", "Serie A", "La Liga")),
+         direction = ifelse(direction == "total",  "Total", direction) %>% 
+           factor(levels = c("Total", "EW", "NS", "E")),
+         value = value * 100) %>% 
+  ggplot() + 
+  geom_bar(aes(x = as.factor(zone), weight = value, fill = as.factor(zone))) + 
+  facet_grid(direction~league, scales = "free_y") +
+  theme_bw()  + 
+  geom_hline(yintercept = 0, colour = "black") +
+  theme(#panel.border = element_blank(), 
+    panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(), 
+  ) + 
+  labs(title = "League speed relative to the EPL for the 2017-18 regular season", x = "Zone", fill = "Zone", y = expression(paste(Delta, " Speed (%)")))
+```
+
+# Hypothesis Test of Zone 1 EPL vs Serie A
+
+```{r}
+load("bootstrap example/england_EW_zone_1_bootstrap.Rda")
+load("bootstrap example/italy_EW_zone_1_bootstrap.Rda")
+```
+
+```{r}
+tibble(
+  stat = england_EW_zone_1_bootstrap - italy_EW_zone_1_bootstrap
+) %>% 
+  mutate(lower = quantile(stat, 0.025, na.rm=TRUE), 
+         upper = quantile(stat, 0.975, na.rm=TRUE)) %>% 
+  ggplot() + 
+  geom_histogram(aes(x = stat), fill = "#A8CEE4", color = "#0C1E75", binwidth = 0.0125) + 
+  geom_vline(aes(
+    xintercept = league_average_speeds %>% filter(zone == 1, direction == "EW") %>% pull(mean_england_zones) -
+      league_average_speeds %>% filter(zone == 1, direction == "EW") %>% pull(mean_italy_zones) 
+  )) + 
+  geom_vline(aes(xintercept = lower)) + 
+  geom_vline(aes(xintercept = upper)) + 
+  labs(title  =  "Bootstrap of Zone 1 (EPL - Serie A)")
+
+```
+
+
+
+
+- look at league pace averages across the zones
+- look at diff in pace between top team minus league averages across zones
+
+event speed / ball speed something diff
+
+dump things onto the doc, cut things as we go 
+
+# last section
+sensitivity analysis - increasing or decreasing # of events/possession
+- maybe look at one section/proboably  zonal analysis 
+
+comparing top teams to bottom teams in terms of # of passes/possessions
+- really clarify that top teams have more passes included in this analysis 
+
+```{r}
+passes_per_poss <- filtered_england_speeds %>% 
+  tbl_df() %>% 
+  #filter(name %in% c("Manchester City", "Liverpool", "Crystal Palace", "AFC Bournemouth", "West Bromwich Albion")) %>%
+  group_by(name, match_id, match_period, poss_id) %>% 
+  summarise(pass_count = n())
+
+passes_per_poss %>% 
+  group_by(name) %>% 
+  summarise(avg_passes_per_poss = mean(pass_count),
+            sd_passes_per_poss = sd(pass_count),
+            median_passes_per_poss = median(pass_count))
+
+passes_per_poss %>%
+  # mutate(name = factor(name, levels = c("Manchester City", "Liverpool", "Crystal Palace", "AFC Bournemouth", "West Bromwich Albion"))) %>% 
+  ggplot() + geom_boxplot(aes(x = name, y = pass_count)) + 
+  #ylim(0,40) + 
+  labs(title = "Avg # of Passes / possession")
+# man city huge outlier is man city vs afc bournemouth, won 4-0
+```
+
+
+```{r}
+england_match_poss_count <- filtered_england_speeds %>% 
+  tbl_df() %>% 
+  group_by(match_id) %>% 
+  summarise(poss_count = n_distinct(poss_id)) 
+
+france_match_poss_count <- filtered_france_speeds %>% 
+  tbl_df() %>% 
+  group_by(match_id) %>% 
+  summarise(poss_count = n_distinct(poss_id)) 
+
+germany_match_poss_count <- filtered_germany_speeds %>% 
+  tbl_df() %>% 
+  group_by(match_id) %>% 
+  summarise(poss_count = n_distinct(poss_id)) 
+
+italy_match_poss_count <- filtered_italy_speeds %>% 
+  tbl_df() %>% 
+  group_by(match_id) %>% 
+  summarise(poss_count = n_distinct(poss_id)) 
+
+spain_match_poss_count <- filtered_spain_speeds %>% 
+  tbl_df() %>% 
+  group_by(match_id) %>% 
+  summarise(poss_count = n_distinct(poss_id)) 
+
+bind_rows(
+  england_match_poss_count %>% mutate(league = "EPL"),
+  france_match_poss_count %>% mutate(league = "Ligue 1"),
+  germany_match_poss_count %>% mutate(league = "Bundesliga"),
+  italy_match_poss_count %>% mutate(league = "Serie A"),
+  spain_match_poss_count %>% mutate(league = "La Liga")
+) %>% 
+  mutate(league = factor(league, levels = c("EPL", "Ligue 1", "Bundesliga",  "Serie A", "La Liga"))) %>% 
+  ggplot() + 
+  geom_boxplot(aes(x = poss_count)) + 
+  facet_grid(league~.) + 
+  labs(title = "Average # of Possessions in a Game", subtitle = "after filtering >=3 passes/possession")
+```
+
+
+
+
+<!--chapter:end:05-results.Rmd-->
+
+# Discussion 
+
+blah blah blah blah 
+
+<!--chapter:end:06-discussion.Rmd-->
+
+# Conclusion 
+
+yay
+
+<!--chapter:end:07-conclusion.Rmd-->
+
+# Appendix 
+
+as;dfjhadskljfdalkfhdlksaj
+
+<!--chapter:end:08-appendix.Rmd-->
+
+`r if (knitr::is_html_output()) '
+# References {-}
+'`
+
+<!--chapter:end:09-references.Rmd-->
+

@@ -1,0 +1,124 @@
+# Methods
+
+```{r setup4, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/ethanshen/Documents/College/Fa20/pace-of-play")
+library(tidyverse)
+library(sf)
+library(kableExtra)
+knitr::opts_chunk$set(echo = FALSE, 
+                      message=FALSE, 
+                      warning=FALSE)
+```
+
+We describe our methods in this chapter.
+
+```{r table-of-events}
+events <- readRDS("data/events/england.Rds") %>% sample_n(20000)
+
+all_events <- events %>% 
+  tbl_df() %>% 
+  ungroup() %>% 
+  select(event_name, sub_event_name) %>% 
+  group_by(event_name, sub_event_name) %>% 
+  distinct() %>% 
+  arrange(event_name, sub_event_name) 
+
+all_events %>% 
+  filter(event_name < "Goalkeeper") %>% 
+  kable(col.names = c("Event Name", "Sub-Event Name")) %>% 
+  collapse_rows(columns = 1, valign = "top") %>%
+  kable_styling(full_width = FALSE, position = "float_left", fixed_thead = T)
+all_events %>% 
+  filter(event_name >="Goalkeeper") %>% 
+  kable(col.names = c("Event Name", "Sub-Event Name")) %>% 
+  collapse_rows(columns = 1, valign = "top") %>%
+  kable_styling(full_width = FALSE, position = "left", fixed_thead = T) 
+```
+
+```{r}
+library(ggsoccer)
+
+draw_pitch <- function(plot, pitch_length = 105, pitch_width = 70, color = "#252525") {
+  plot + 
+    geom_point(x = pitch_length / 2, y = pitch_width / 2, shape = 1, size = 20, color = color) +
+    geom_rect(xmin = 0, 
+              xmax = 16.5, 
+              ymin = (pitch_width - 40.3) / 2, 
+              ymax = (pitch_width - 40.3) / 2 + 40.3,
+              fill = "white", color = color, alpha = 0) +
+    geom_rect(xmin = pitch_length - 16.5, 
+              xmax = pitch_length, 
+              ymin = (pitch_width - 40.3) / 2, 
+              ymax = (pitch_width - 40.3) / 2 + 40.3,
+              fill = "white", color = color, alpha = 0) +
+    geom_rect(xmin = 0, 
+              xmax = 5.5, 
+              ymin = (pitch_width - 40.3) / 2 + 11, 
+              ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+              fill = "white", color = color, alpha = 0) +
+    geom_rect(xmin = pitch_length - 5.5, 
+              xmax = pitch_length, 
+              ymin = (pitch_width - 40.3) / 2 + 11, 
+              ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+              fill = "white", color = color, alpha = 0) +
+    geom_segment(aes(x = 0, y = 0, xend = pitch_length, yend = 0), color = color) + 
+    geom_segment(aes(x = 0, y = 0, xend = 0, yend = pitch_width), color = color) +
+    geom_segment(aes(x = pitch_length, y = 0, xend = pitch_length, yend = pitch_width), color = color) +
+    geom_segment(aes(x = 0, y = pitch_width, xend = pitch_length, yend = pitch_width), color = color) +
+    geom_segment(aes(x = pitch_length / 2, y = 0, xend = pitch_length / 2, yend = pitch_width), color = color) +
+    theme_bw() +
+    labs(x = "", y = "") +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.background = element_rect(fill = "#cdff9c"), 
+          axis.line = element_line(colour = color))
+}
+zones %>% 
+  mutate(rowid = 1:8) %>% 
+  ggplot() %>% 
+  draw_pitch(color = "#000000") + 
+  geom_sf(aes(fill = as.factor(rowid)), color = NA, alpha = 0.8) + 
+  geom_sf_label(aes(label = rowid)) + 
+  direction_label(x_label = 52.5, y_label = -2, colour = "#252525") +
+  theme_bw() +
+  labs(fill = "Zone", x = "", y = "") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#cdff9c"), 
+        axis.line = element_line(colour = "#252525")) 
+```
+
+## Poss ID
+
+Before analyzing pace-of-play, we created a possession identifier for each match that indicates the current unique possession in a match. 
+
+New possessions begin after a team demonstrates that it has established control of the ball. This occurs in the following situations: at the start of a half, when the team intercepts or successfully tackles the ball, and after the opposing team last touches the ball before it goes out, commits a foul followed by a freekick, or after a shot is taken. A new possession can also begin even if the same team has possession of the ball. For example, if the ball goes out for a throw in for the attacking team, this indicates a new possession for the same attacking team. In addition, if the attacking team makes a pass after a sequence of duels, this constitutes the same possession. 
+
+should i say anything about average # of possessions / game ? 
+
+## Metrics of Pace 
+
+After creating a possession identifier, we calculated the total, east-west, north-south, and east-only distances traveled and speeds of each event. The EW distances are determined by the difference of the starting and ending x-coordinates and the NS distances are determined by the difference of the starting and ending y-coordinates. The total distances are calculated by sqrt(EW^2 + NS^2). Events are assigned an E-only distance only if the pass travels toward the opposing goal. Although the ball rarely travels in a straight line, the dataset does not provide information about its trajectory, so we assume that the ball travels in a straight line from its starting to ending coordinates. 
+
+Next, we determined the duration between events. For each event, the dataset only provides a timestamp in seconds since the beginning of the current half of the match. Thus, within each possession, the duration for an event was calculated as the difference of the timestamp of the following event and that of the current event.  With this definition of duration, the last event in the possession sequence is not included in the calculation of pace. Finally, the speeds of each event are calculated by dividing the corresponding distance by its duration. 
+
+We used the distance travelled and duration between successive passes and free kicks (except for free kick shots and penalty kicks) during the same possession to calculate four different measures of pace, which include total speed and the east-west, north-south, and east-only components of speed. E-only  speed differs from EW-speed in that only forward progress is measured, and any backward progress is excluded from the analysis. 
+
+When analyzing pace, we only included passes and free kicks (except for free kick shots and penalty kicks) since these events are reliable indicators of the pace of the game. In addition,  we only kept possessions that consist of three or more pass or free kick events, as these types of possessions are more definitive of a team’s pace. For the results and discussion of pace, events will only refer to these passes and free kicks. 
+
+## Spatial Grids Analysis 
+
+We divided the pitch into 294 equal 5x5 meter square grids. Each event’s total, EW, NS and E-only speeds was equally assigned to all grids that intersect the path of the event. For each of the 5x5 grids, we then take the median speed for each of the four different pace metrics. 
+
+## Zonal Analysis 
+
+We divided the pitch into 8 regions, as seen in Figure XXXX. For each zone, we determined which of the 294 5x5 grids are located in or overlap the zone. We then take the mean, median, and standard deviation of the median speed values of those 5x5 grids to determine the aggregate speeds for the zone. 
+
+This method was conducted in favor of another one that assigns an event’s speeds to all zones that intersect the path of the event. Our approach automatically factors in the event’s distance within the zone and is more resistant to outliers. For example, for a pass that intersects N different 5x5 grids in a zone, the zone’s aggregate speed will be affected by that pass’ speed N times instead of just once. This approach is thus more resistant to outliers. 
+
+## Team Level Analyses
+
+Team-level analyses were performed using both the spatial grid and zonal approaches, and done across the five leagues. In each league, we analyzed the 1st, 4th, 11th, 12th, and last place teams with the hopes of better understanding how pace differs among top, middle and bottom-tier teams. 
+
+## Player Level Analyses 
+
+Player-level analyses were performed using only the zonal approach, since there is a much smaller sample size of events. We looked at XXXX groups of players across each league: the top goalscorer(s), and the center back and midfielder on the first place team that played the most minutes during the season. These statistics were taken only from games played within the players’ respective leagues and excluded any other form of national or international competition (i.e. FA Cup, Copa del Rey, Champions League).
+

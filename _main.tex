@@ -1,0 +1,464 @@
+\PassOptionsToPackage{unicode=true}{hyperref} % options for packages loaded elsewhere
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[]{book}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provides euro and other symbols
+\else % if luatex or xelatex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage[]{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\usepackage{hyperref}
+\hypersetup{
+            pdftitle={Nifty Neato Bookdown},
+            pdfauthor={Your Name Here},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{longtable,booktabs}
+% Fix footnotes in tables (requires footnote package)
+\IfFileExists{footnote.sty}{\usepackage{footnote}\makesavenoteenv{longtable}}{}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{5}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+% set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+
+\usepackage{booktabs}
+\usepackage{floatrow}
+\usepackage{etoolbox}
+\makeatletter
+\providecommand{\subtitle}[1]{% add subtitle to \maketitle
+  \apptocmd{\@title}{\par {\large #1 \par}}{}{}
+}
+\makeatother
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage[]{natbib}
+\bibliographystyle{apalike}
+
+\title{Nifty Neato Bookdown}
+\providecommand{\subtitle}[1]{}
+\subtitle{Based on the book and work of Yihui Xie}
+\author{Your Name Here}
+\date{2021-03-09}
+
+\begin{document}
+\maketitle
+
+{
+\setcounter{tocdepth}{1}
+\tableofcontents
+}
+\hypertarget{prerequisites}{%
+\chapter{Prerequisites}\label{prerequisites}}
+
+This is a \emph{sample} book written in \textbf{Markdown}. You can use anything that Pandoc's Markdown supports, e.g., a math equation \(a^2 + b^2 = c^2\).
+
+The \textbf{bookdown} package can be installed from CRAN or Github:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{install.packages}\NormalTok{(}\StringTok{"bookdown"}\NormalTok{)}
+\CommentTok{# or the development version}
+\CommentTok{# devtools::install_github("rstudio/bookdown")}
+\end{Highlighting}
+\end{Shaded}
+
+Remember each Rmd file contains one and only one chapter, and a chapter is defined by the first-level heading \texttt{\#}.
+
+To compile this example to PDF, you need XeLaTeX. You are recommended to install TinyTeX (which includes XeLaTeX): \url{https://yihui.org/tinytex/}.
+
+Learn more about bookdown \url{https://bookdown.org/yihui/bookdown}
+
+\hypertarget{intro}{%
+\chapter{Introduction}\label{intro}}
+
+Pace-of-play is an important characteristic in possession-based / team-based sports that can heavily influence the style and outcome of a match. In soccer, pace-of-play has been defined as the number of shots taken or total number of successful passes per game. The main limitation of event-based pace metrics is that they fail to appropriately account for the circumstances under which they are performed. For example, the total number of successful passes does not differentiate between a pass made between two defenders in their own half and a pass from a winger trying to create a goal-scoring opportunity.
+
+Pace-of-play has also been measured as the distance covered over time within a team's possessions. However, short possessions do not provide an accurate measurement of pace. For example, a possession consisting of a goal kick and a pass may travel at a fast speed, but does not contribute to a team's overall pace.
+
+The aim of this work is to analyze pace-of-play for possessions that consist of three or more pass or free kick events, as these types of events are more definitive of a team's pace. The use of spatio-temporal event data allows for more granular measurements of pace-of-play, such as measures of speed between consecutive events and between different regions on the pitch.
+
+In addition, we seek to build a model using these metrics (add more when we get to modeling).
+
+Our research goals are three-fold:
+Examine how pace-of-play varies across the pitch, between different players and across different professional leagues.\\
+Quantify variations in pace at the player and team level and provide metrics to assess how well players and teams attack/defend pace.
+Evaluate effectiveness of pace metrics by incorporating them into models that predict the outcome of a match.
+
+Our results show that pace is \_\_\_\_, and are good/bad variables when predicting the outcome of a match.
+
+The remainder of this paper is organized as follows. Section 2 discusses the related work that analyzes pace-of-play in soccer and other team sports and Section 3 describes the dataset / datasets. Section 4 introduces the pace-of-play metrics and the modeling methods. Section 5 presents the results of the methodology. Sections 6 and 7 provide a discussion of our findings and a conclusion, respectively.
+
+\hypertarget{literature}{%
+\chapter{Literature}\label{literature}}
+
+Here is a review of existing methods.
+
+\hypertarget{data}{%
+\chapter{Data}\label{data}}
+
+\newfloatcommand{btabbox}{table}
+
+\begin{figure}[H]
+  \begin{floatrow}
+    \ffigbox{%
+\begin{table}
+
+\caption{\label{tab:unnamed-chunk-6}Representation of a play consisting of 5 actions in a match between Arsenal and Leicester City}
+\centering
+\begin{tabular}[t]{l|l|r|l|l}
+\hline
+Match ID & Event Name & Timestamp & \$(x,y)\_\{start\}\$ & \$(x,y)\_\{end\}\$\\
+\hline
+2499719 & Pass & 86.77346 & (94.5, 67.9) & (75.6, 60.9)\\
+\hline
+2499719 & Pass & 89.24939 & (75.6, 60.9) & (90.3, 9.8)\\
+\hline
+2499719 & Pass & 93.11555 & (90.3, 9.8) & (76.65, 20.3)\\
+\hline
+2499719 & Pass & 93.96124 & (76.65, 20.3) & (92.4, 41.3)\\
+\hline
+2499719 & Shot & 94.59579 & (92.4, 41.3) & (105, 39.4)\\
+\hline
+\end{tabular}
+\end{table}
+    }{\caption{A figure}}
+
+    \btabbox{%
+
+\begin{flushright}\includegraphics{_main_files/figure-latex/unnamed-chunk-7-1} \end{flushright}
+    }{\caption{A table}}
+  \end{floatrow}
+\end{figure}
+
+\includegraphics{_main_files/figure-latex/unnamed-chunk-9-1.pdf}
+
+\hypertarget{methods}{%
+\chapter{Methods}\label{methods}}
+
+We describe our methods in this chapter.
+
+\begin{wraptable}{l}{0pt}
+\begin{tabular}{l|l}
+\hline
+Event Name & Sub-Event Name\\
+\hline
+ & Air duel\\
+\cline{2-2}
+ & Ground attacking duel\\
+\cline{2-2}
+ & Ground defending duel\\
+\cline{2-2}
+\multirow[t]{-4}{*}{\raggedright\arraybackslash Duel} & Ground loose ball duel\\
+\cline{1-2}
+ & Foul\\
+\cline{2-2}
+ & Hand foul\\
+\cline{2-2}
+ & Late card foul\\
+\cline{2-2}
+ & Out of game foul\\
+\cline{2-2}
+ & Protest\\
+\cline{2-2}
+\multirow[t]{-6}{*}{\raggedright\arraybackslash Foul} & Simulation\\
+\cline{1-2}
+ & Corner\\
+\cline{2-2}
+ & Free Kick\\
+\cline{2-2}
+ & Free kick cross\\
+\cline{2-2}
+ & Free kick shot\\
+\cline{2-2}
+ & Goal kick\\
+\cline{2-2}
+ & Penalty\\
+\cline{2-2}
+\multirow[t]{-7}{*}{\raggedright\arraybackslash Free Kick} & Throw in\\
+\hline
+\end{tabular}\end{wraptable}
+
+\begin{tabular}{l|l}
+\hline
+Event Name & Sub-Event Name\\
+\hline
+Goalkeeper leaving line & Goalkeeper leaving line\\
+\cline{1-2}
+ & Ball out of the field\\
+\cline{2-2}
+\multirow[t]{-2}{*}{\raggedright\arraybackslash Interruption} & Whistle\\
+\cline{1-2}
+Offside & \\
+\cline{1-2}
+ & Acceleration\\
+\cline{2-2}
+ & Clearance\\
+\cline{2-2}
+\multirow[t]{-3}{*}{\raggedright\arraybackslash Others on the ball} & Touch\\
+\cline{1-2}
+ & Cross\\
+\cline{2-2}
+ & Hand pass\\
+\cline{2-2}
+ & Head pass\\
+\cline{2-2}
+ & High pass\\
+\cline{2-2}
+ & Launch\\
+\cline{2-2}
+ & Simple pass\\
+\cline{2-2}
+\multirow[t]{-7}{*}{\raggedright\arraybackslash Pass} & Smart pass\\
+\cline{1-2}
+ & Reflexes\\
+\cline{2-2}
+\multirow[t]{-2}{*}{\raggedright\arraybackslash Save attempt} & Save attempt\\
+\cline{1-2}
+Shot & Shot\\
+\hline
+\end{tabular}
+
+\includegraphics{_main_files/figure-latex/unnamed-chunk-10-1.pdf}
+
+\hypertarget{poss-id}{%
+\section{Poss ID}\label{poss-id}}
+
+Before analyzing pace-of-play, we created a possession identifier for each match that indicates the current unique possession in a match.
+
+New possessions begin after a team demonstrates that it has established control of the ball. This occurs in the following situations: at the start of a half, when the team intercepts or successfully tackles the ball, and after the opposing team last touches the ball before it goes out, commits a foul followed by a freekick, or after a shot is taken. A new possession can also begin even if the same team has possession of the ball. For example, if the ball goes out for a throw in for the attacking team, this indicates a new possession for the same attacking team. In addition, if the attacking team makes a pass after a sequence of duels, this constitutes the same possession.
+
+should i say anything about average \# of possessions / game ?
+
+\hypertarget{metrics-of-pace}{%
+\section{Metrics of Pace}\label{metrics-of-pace}}
+
+After creating a possession identifier, we calculated the total, east-west, north-south, and east-only distances traveled and speeds of each event. The EW distances are determined by the difference of the starting and ending x-coordinates and the NS distances are determined by the difference of the starting and ending y-coordinates. The total distances are calculated by sqrt(EW\^{}2 + NS\^{}2). Events are assigned an E-only distance only if the pass travels toward the opposing goal. Although the ball rarely travels in a straight line, the dataset does not provide information about its trajectory, so we assume that the ball travels in a straight line from its starting to ending coordinates.
+
+Next, we determined the duration between events. For each event, the dataset only provides a timestamp in seconds since the beginning of the current half of the match. Thus, within each possession, the duration for an event was calculated as the difference of the timestamp of the following event and that of the current event. With this definition of duration, the last event in the possession sequence is not included in the calculation of pace. Finally, the speeds of each event are calculated by dividing the corresponding distance by its duration.
+
+We used the distance travelled and duration between successive passes and free kicks (except for free kick shots and penalty kicks) during the same possession to calculate four different measures of pace, which include total speed and the east-west, north-south, and east-only components of speed. E-only speed differs from EW-speed in that only forward progress is measured, and any backward progress is excluded from the analysis.
+
+When analyzing pace, we only included passes and free kicks (except for free kick shots and penalty kicks) since these events are reliable indicators of the pace of the game. In addition, we only kept possessions that consist of three or more pass or free kick events, as these types of possessions are more definitive of a team's pace. For the results and discussion of pace, events will only refer to these passes and free kicks.
+
+\hypertarget{spatial-grids-analysis}{%
+\section{Spatial Grids Analysis}\label{spatial-grids-analysis}}
+
+We divided the pitch into 294 equal 5x5 meter square grids. Each event's total, EW, NS and E-only speeds was equally assigned to all grids that intersect the path of the event. For each of the 5x5 grids, we then take the median speed for each of the four different pace metrics.
+
+\hypertarget{zonal-analysis}{%
+\section{Zonal Analysis}\label{zonal-analysis}}
+
+We divided the pitch into 8 regions, as seen in Figure XXXX. For each zone, we determined which of the 294 5x5 grids are located in or overlap the zone. We then take the mean, median, and standard deviation of the median speed values of those 5x5 grids to determine the aggregate speeds for the zone.
+
+This method was conducted in favor of another one that assigns an event's speeds to all zones that intersect the path of the event. Our approach automatically factors in the event's distance within the zone and is more resistant to outliers. For example, for a pass that intersects N different 5x5 grids in a zone, the zone's aggregate speed will be affected by that pass' speed N times instead of just once. This approach is thus more resistant to outliers.
+
+\hypertarget{team-level-analyses}{%
+\section{Team Level Analyses}\label{team-level-analyses}}
+
+Team-level analyses were performed using both the spatial grid and zonal approaches, and done across the five leagues. In each league, we analyzed the 1st, 4th, 11th, 12th, and last place teams with the hopes of better understanding how pace differs among top, middle and bottom-tier teams.
+
+\hypertarget{player-level-analyses}{%
+\section{Player Level Analyses}\label{player-level-analyses}}
+
+Player-level analyses were performed using only the zonal approach, since there is a much smaller sample size of events. We looked at XXXX groups of players across each league: the top goalscorer(s), and the center back and midfielder on the first place team that played the most minutes during the season. These statistics were taken only from games played within the players' respective leagues and excluded any other form of national or international competition (i.e.~FA Cup, Copa del Rey, Champions League).
+
+\hypertarget{results}{%
+\chapter{Results}\label{results}}
+
+maybe should focus more granular things on just the EPL,
+
+\hypertarget{exploring-pace}{%
+\chapter{Exploring Pace}\label{exploring-pace}}
+
+\hypertarget{pace-of-play-across-the-pitch}{%
+\section{Pace-of-Play Across the Pitch}\label{pace-of-play-across-the-pitch}}
+
+\includegraphics{_main_files/figure-latex/unnamed-chunk-13-1.pdf}
+
+\hypertarget{pace-of-play-by-zone}{%
+\section{Pace-of-Play by Zone}\label{pace-of-play-by-zone}}
+
+\begin{itemize}
+\tightlist
+\item
+  pace by zone for all leagues
+\item
+  pace by zone for 5 EPL teams, and top team from other leagues
+\end{itemize}
+
+\hypertarget{pace-of-play-by-league}{%
+\section{Pace-of-Play by League}\label{pace-of-play-by-league}}
+
+\includegraphics{_main_files/figure-latex/unnamed-chunk-15-1.pdf}
+
+\includegraphics{_main_files/figure-latex/unnamed-chunk-16-1.pdf}
+
+\hypertarget{hypothesis-test-of-zone-1-epl-vs-serie-a}{%
+\chapter{Hypothesis Test of Zone 1 EPL vs Serie A}\label{hypothesis-test-of-zone-1-epl-vs-serie-a}}
+
+\includegraphics{_main_files/figure-latex/unnamed-chunk-18-1.pdf}
+
+\begin{itemize}
+\tightlist
+\item
+  look at league pace averages across the zones
+\item
+  look at diff in pace between top team minus league averages across zones
+\end{itemize}
+
+event speed / ball speed something diff
+
+dump things onto the doc, cut things as we go
+
+\hypertarget{last-section}{%
+\chapter{last section}\label{last-section}}
+
+sensitivity analysis - increasing or decreasing \# of events/possession
+- maybe look at one section/proboably zonal analysis
+
+comparing top teams to bottom teams in terms of \# of passes/possessions
+- really clarify that top teams have more passes included in this analysis
+
+\begin{verbatim}
+## # A tibble: 20 x 4
+##    name               avg_passes_per_poss sd_passes_per_po~ median_passes_per_p~
+##    <chr>                            <dbl>             <dbl>                <dbl>
+##  1 AFC Bournemouth                   5.60              3.88                    4
+##  2 Arsenal                           7.71              5.78                    6
+##  3 Brighton & Hove A~                5.64              3.78                    5
+##  4 Burnley                           5.18              3.55                    4
+##  5 Chelsea                           7.08              4.75                    6
+##  6 Crystal Palace                    5.45              3.66                    4
+##  7 Everton                           5.64              3.91                    4
+##  8 Huddersfield Town                 5.59              3.99                    4
+##  9 Leicester City                    5.64              3.93                    4
+## 10 Liverpool                         7.62              5.52                    6
+## 11 Manchester City                   9.44              7.46                    7
+## 12 Manchester United                 7.19              5.33                    5
+## 13 Newcastle United                  5.28              3.60                    4
+## 14 Southampton                       6.31              4.42                    5
+## 15 Stoke City                        5.09              3.83                    4
+## 16 Swansea City                      5.92              4.13                    5
+## 17 Tottenham Hotspur                 7.06              5.17                    5
+## 18 Watford                           5.74              4.08                    4
+## 19 West Bromwich Alb~                5.11              3.25                    4
+## 20 West Ham United                   5.56              3.86                    4
+\end{verbatim}
+
+\includegraphics{_main_files/figure-latex/unnamed-chunk-19-1.pdf}
+
+\includegraphics{_main_files/figure-latex/unnamed-chunk-20-1.pdf}
+
+\hypertarget{discussion}{%
+\chapter{Discussion}\label{discussion}}
+
+blah blah blah blah
+
+\hypertarget{conclusion}{%
+\chapter{Conclusion}\label{conclusion}}
+
+yay
+
+\hypertarget{appendix}{%
+\chapter{Appendix}\label{appendix}}
+
+as;dfjhadskljfdalkfhdlksaj
+
+\bibliography{book.bib,packages.bib}
+
+\end{document}

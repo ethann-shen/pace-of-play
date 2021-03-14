@@ -1,0 +1,141 @@
+# Data
+
+```{r include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/ethanshen/Documents/College/Fa20/pace-of-play")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(sf)
+library(kableExtra)
+library(scoutr)
+
+knitr::opts_chunk$set(echo = FALSE, 
+                      message=FALSE, 
+                      warning=FALSE)
+```
+
+```{r}
+#setwd("/Users/ethanshen/Documents/College/Fa20/pace-of-play")
+load("grids5x5.Rda")
+load("zones.Rda")
+load("first_game.Rda")
+```
+
+
+```{r example-data, out.width="50%"}
+example <- first_game %>% #group_by(poss_id) %>% mutate(n = n()) %>% filter(event_name == "Shot", n >= 5)#head(1000) %>% select(match_id, team_id, sub_event_name, event_sec, poss_id, starts_with("start_"), starts_with("end_")) 
+  filter(match_id == "2499719", poss_id == 8) %>% 
+  tbl_df() %>% 
+  tail(5) %>% 
+  mutate(start = paste0("(", start_x, ", ", start_y %>% as.double(), ")"),
+         end = paste0("(", end_x, ", ", round(end_y,1), ")")) 
+
+
+
+example %>% 
+  select(match_id, event_name, event_sec, start, end) %>% #kable()
+  kableExtra::kable(caption = "Representation of a play consisting of 5 actions in a match between Arsenal and Leicester City",
+                    col.names = c("Match ID", "Event Name", "Timestamp", "$(x,y)_{start}$", "$(x,y)_{end}$")) %>% 
+  kable_styling(full_width = F)
+
+example %>% 
+  ggplot()  +
+  fc_annotate_pitch(palette = "classic") +
+  fc_annotate_arrow(x = 52.5, y = -10) +
+  fc_theme_bw() + 
+  geom_segment(aes(x = start_x, y = start_y, xend = end_x,  yend = end_y),
+               arrow = arrow(length = unit(0.03, "npc")))
+```
+
+
+
+
+```{r eval=FALSE}
+pitch_length <- 105
+pitch_width <- 70
+grids5x5 %>% 
+  ggplot() +
+  geom_segment(aes(x = 0, y = 0, xend = pitch_length, yend = 0), color = "#F8FAF7", size = 0.2) + 
+  geom_segment(aes(x = 0, y = 0, xend = 0, yend = pitch_width), color = "#F8FAF7", size = 0.2) +
+  geom_segment(aes(x = pitch_length, y = 0, xend = pitch_length, yend = pitch_width), color = "#F8FAF7", size = 0.2) +
+  geom_segment(aes(x = 0, y = pitch_width, xend = pitch_length, yend = pitch_width), color = "#F8FAF7", size = 0.2) +
+  geom_segment(aes(x = pitch_length / 2, y = 0, xend = pitch_length / 2, yend = pitch_width), color = "#F8FAF7", size = 0.2) +
+  geom_point(x = pitch_length / 2, y = pitch_width / 2, shape = 1, size = 20, color = "#F8FAF7") +
+  geom_rect(xmin = 0, 
+            xmax = 16.5, 
+            ymin = (pitch_width - 40.3) / 2, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3,
+            fill = "#F8FAF7", color = "#F8FAF7", alpha = 0, size = 0.2) +
+  geom_rect(xmin = pitch_length - 16.5, 
+            xmax = pitch_length, 
+            ymin = (pitch_width - 40.3) / 2, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3,
+            fill = "#F8FAF7", color = "#F8FAF7", alpha = 0, size = 0.2) +
+  geom_rect(xmin = 0, 
+            xmax = 5.5, 
+            ymin = (pitch_width - 40.3) / 2 + 11, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+            fill = "#F8FAF7", color = "#F8FAF7", alpha = 0, size = 0.2) +
+  geom_rect(xmin = pitch_length - 5.5, 
+            xmax = pitch_length, 
+            ymin = (pitch_width - 40.3) / 2 + 11, 
+            ymax = (pitch_width - 40.3) / 2 + 40.3 - 11,
+            fill = "#F8FAF7", color = "#F8FAF7", alpha = 0, size = 0.2) +
+  theme_bw() +
+  labs(x = "", y = "") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#629A52"), 
+        axis.line = element_line(colour = "#F8FAF7")) + 
+  geom_text(aes(x = 96.85, y = 53, label = "Penalty box") , vjust = 0.5) +  
+  geom_text(aes(x = 8.25, y = 58, label = "6-yard box") , vjust = 0.5) + 
+  geom_segment(aes(x = 8.25, y = 57, xend = 2.75, yend = 38), # arrow pointing to 6-yard box 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             type = "closed", angle = 30)) + 
+  geom_segment(aes(x = 86.65, xend = 86.65, y = 14.85, yend = 55.15), # penalty box vertical
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 82, y = 35, label = "40.3 m")) + 
+  geom_segment(aes(x = 88.5, xend = 104.8, y = 13, yend = 13), # penalty box horizontal arrow 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 96.75, y = 11, label = "16.5 m")) +
+  geom_segment(aes(x = 7.35, xend = 7.35, y = 25.85, yend = 44.15), # 6-yard box vertical
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 12, y = 35, label = "18.3 m")) + 
+  geom_segment(aes(x = 0.2, xend = 5.5, y = 24, yend = 24), # 6-yard box horizontal arrow 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 2.75, y = 22, label = "5.5 m")) +
+  scale_x_continuous(limits=c(0, 105), breaks = seq(0, 100, by = 20)) +
+  scale_y_continuous(limits=c(0, 70), breaks = seq(0, 70, by = 10))
+```
+
+```{r}
+ggplot() +
+  fc_annotate_pitch() +
+  theme_void() + 
+  geom_text(aes(x = 96.85, y = 53, label = "Penalty box") , vjust = 0.5) +  
+  geom_text(aes(x = 8.25, y = 58, label = "6-yard box") , vjust = 0.5) + 
+  geom_segment(aes(x = 8.25, y = 57, xend = 2.75, yend = 38), # arrow pointing to 6-yard box 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             type = "closed", angle = 30)) + 
+  geom_segment(aes(x = 86.65, xend = 86.65, y = 14.85, yend = 55.15), # penalty box vertical
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 82, y = 35, label = "40.3 m")) + 
+  geom_segment(aes(x = 88.5, xend = 104.8, y = 13, yend = 13), # penalty box horizontal arrow 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 96.75, y = 11, label = "16.5 m")) +
+  geom_segment(aes(x = 7.35, xend = 7.35, y = 25.85, yend = 44.15), # 6-yard box vertical
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 12, y = 38, label = "18.3 m")) + 
+  geom_segment(aes(x = 0.2, xend = 5.5, y = 24, yend = 24), # 6-yard box horizontal arrow 
+               arrow = arrow(length = unit(0.15, "cm"), 
+                             ends = "both", type = "closed", angle = 30)) + 
+  geom_text(aes(x = 2.75, y = 22, label = "5.5 m")) 
+```
+

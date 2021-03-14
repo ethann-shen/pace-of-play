@@ -1,0 +1,256 @@
+# Results 
+
+```{r}
+knitr::opts_knit$set(root.dir = "/Users/ethanshen/Documents/College/Fa20/pace-of-play")
+```
+
+```{r}
+library(tidyverse)
+library(sf)
+load("grids5x5.Rda")
+load("zones.Rda")
+load("data/filtered_england_speeds.Rda")
+load("data/filtered_france_speeds.Rda")
+load("data/filtered_germany_speeds.Rda")
+load("data/filtered_italy_speeds.Rda")
+load("data/filtered_spain_speeds.Rda")
+source("source.R")
+load("league_average_speeds.Rda")
+```
+
+maybe should focus more granular things on just the EPL, 
+
+# Exploring Pace 
+
+## Pace-of-Play Across the Pitch
+
+
+```{r}
+library(patchwork)
+load("england/man_city/man_city_total_speeds.Rda")
+load("england/liverpool/liverpool_total_speeds.Rda")
+load("england/bournemouth/bournemouth_total_speeds.Rda")
+load("england/wba/wba_total_speeds.Rda")
+p1 <- create_heatmap(grids5x5, median_man_city_total_speed) + theme_void() + labs(y = "Manchester City") 
+p2 <- create_heatmap(grids5x5, ifelse(median_liverpool_total_speed > 45, NA, median_liverpool_total_speed)) + theme_void()
+p3 <- create_heatmap(grids5x5, median_bournemouth_total_speed) + theme_void()
+p4 <- create_heatmap(grids5x5, median_wba_total_speed) + theme_void()
+#(p1 | p2) / (p3 | p4)
+
+library(ggpubr)
+ggarrange(p1, p2, p3, p4, ncol=2, nrow=2, common.legend = TRUE, legend="bottom")
+
+```
+
+
+## Pace-of-Play by Zone 
+
+- pace by zone  for all leagues
+- pace by zone for 5 EPL teams, and top team from other leagues
+
+
+## Pace-of-Play by League
+
+```{r include=FALSE}
+folders <- c("spain", "germany", "italy", "england", "france")
+files <- list.files(path = paste0("", folders, "/all"))
+files <- files[!str_detect(files, "intersection")]
+leagues <- files %>% str_split("_") %>% map(1) %>% unlist()
+lapply(paste0("", leagues, "/all/", files), load , .GlobalEnv) %>% invisible()
+
+england_all_median_E_speed <- england_all_E_speed %>% map_dbl(median, na.rm=TRUE)
+england_all_median_EW_speed <- england_all_EW_speed %>% map_dbl(median, na.rm=TRUE)
+england_all_median_NS_speed <- england_all_NS_speed %>% map_dbl(median, na.rm=TRUE)
+england_all_median_total_speed <- england_all_total_speed %>% map_dbl(median, na.rm=TRUE)
+england_pass_count <- map(england_all_total_speed, ~.[!is.na(.)]) %>% map_dbl(length)
+
+france_all_median_E_speed <- france_all_E_speed %>% map_dbl(median, na.rm=TRUE)
+france_all_median_EW_speed <- france_all_EW_speed %>% map_dbl(median, na.rm=TRUE)
+france_all_median_NS_speed <- france_all_NS_speed %>% map_dbl(median, na.rm=TRUE)
+france_all_median_total_speed <-  france_all_total_speed %>% map_dbl(median, na.rm=TRUE)
+france_pass_count <- map(france_all_total_speed, ~.[!is.na(.)]) %>% map_dbl(length)
+
+germany_all_median_E_speed <- germany_all_E_speed %>% map_dbl(median, na.rm=TRUE)
+germany_all_median_EW_speed <-  germany_all_EW_speed   %>% map_dbl(median, na.rm=TRUE)
+germany_all_median_NS_speed <-germany_all_NS_speed %>% map_dbl(median, na.rm=TRUE)
+germany_all_median_total_speed <-germany_all_total_speed %>% map_dbl(median, na.rm=TRUE)
+germany_pass_count <- map(germany_all_total_speed, ~.[!is.na(.)]) %>% map_dbl(length)
+
+italy_all_median_E_speed <- italy_all_E_speed %>% map_dbl(median, na.rm=TRUE)
+italy_all_median_EW_speed <-italy_all_EW_speed %>% map_dbl(median, na.rm=TRUE)
+italy_all_median_NS_speed <- italy_all_NS_speed %>% map_dbl(median, na.rm=TRUE)
+italy_all_median_total_speed <- italy_all_total_speed %>% map_dbl(median, na.rm=TRUE)
+italy_pass_count <- map(italy_all_total_speed, ~.[!is.na(.)]) %>% map_dbl(length)
+
+spain_all_median_E_speed <- spain_all_E_speed %>% map_dbl(median, na.rm=TRUE)
+spain_all_median_EW_speed <-spain_all_EW_speed %>% map_dbl(median, na.rm=TRUE)
+spain_all_median_NS_speed <-  spain_all_NS_speed %>% map_dbl(median, na.rm=TRUE)
+spain_all_median_total_speed <- spain_all_total_speed %>% map_dbl(median, na.rm=TRUE)
+spain_pass_count <- map(spain_all_total_speed, ~.[!is.na(.)]) %>% map_dbl(length)
+
+team_median_speed_files <- ls(envir=.GlobalEnv)[str_detect(ls(envir=.GlobalEnv), "all_median")]
+england_files <- team_median_speed_files[str_detect(team_median_speed_files, "england")]
+france_files <- team_median_speed_files[str_detect(team_median_speed_files, "france")]
+germany_files <- team_median_speed_files[str_detect(team_median_speed_files, "germany")]
+italy_files <- team_median_speed_files[str_detect(team_median_speed_files, "italy")]
+spain_files <- team_median_speed_files[str_detect(team_median_speed_files, "spain")]
+
+
+league_average_speeds <- tibble(
+  zone = 1:8 %>% rep(4),
+  direction = str_split(england_files, "_") %>% map(4) %>% unlist() %>% rep(each=8),
+  mean_england_zones = map(england_files, ~fill_zones(zones = zones, speeds = eval(parse(text=.)), metric=mean)) %>% unlist(),
+  mean_france_zones = map(france_files, ~fill_zones(zones = zones, speeds = eval(parse(text=.)), metric=mean)) %>% unlist(),
+  mean_germany_zones = map(germany_files, ~fill_zones(zones = zones, speeds = eval(parse(text=.)), metric=mean)) %>% unlist(),
+  mean_italy_zones = map(italy_files, ~fill_zones(zones = zones, speeds = eval(parse(text=.)), metric=mean)) %>% unlist(),
+  mean_spain_zones = map(spain_files, ~fill_zones(zones = zones, speeds = eval(parse(text=.)), metric=mean)) %>% unlist(),
+) 
+
+save(league_average_speeds, file = "league_average_speeds.Rda")
+```
+
+```{r}
+league_average_speeds %>% 
+  select(zone, direction, mean_england_zones) %>% 
+  tidyr::gather(league, value, mean_england_zones) %>% 
+  mutate(league = str_remove_all(league, "mean_|_zones") %>% str_to_title()) %>% 
+  mutate(direction = ifelse(direction == "total",  "Total", direction) %>% 
+           factor(levels = c("Total", "EW", "NS", "E"))) %>% 
+  ggplot() + 
+  geom_bar(aes(x = as.factor(zone), weight = value, fill = as.factor(zone))) + 
+  facet_grid(.~direction, scales = "free_y") +
+  labs(x = "Zone", y = "Speed (m/s)", title = "EPL Average Speeds") + 
+  theme_bw()  + 
+  theme(legend.position = "none")
+```
+
+```{r}
+league_average_speeds %>% 
+  mutate(`Ligue 1` = map2(mean_england_zones, mean_france_zones, perc_change) %>% unlist(),
+         Bundesliga = map2(mean_england_zones, mean_germany_zones, perc_change) %>% unlist(),
+         `Serie A` = map2(mean_england_zones, mean_italy_zones, perc_change) %>% unlist(),
+         `La Liga` = map2(mean_england_zones, mean_spain_zones, perc_change) %>% unlist()) %>% 
+  select(-(mean_england_zones:mean_spain_zones)) %>% 
+  tidyr::gather(league, value, `Ligue 1`:`La Liga`) %>% 
+  mutate(league = factor(league,  levels = c("Ligue 1", "Bundesliga", "Serie A", "La Liga")),
+         direction = ifelse(direction == "total",  "Total", direction) %>% 
+           factor(levels = c("Total", "EW", "NS", "E")),
+         value = value * 100) %>% 
+  ggplot() + 
+  geom_bar(aes(x = as.factor(zone), weight = value, fill = as.factor(zone))) + 
+  facet_grid(direction~league, scales = "free_y") +
+  theme_bw()  + 
+  geom_hline(yintercept = 0, colour = "black") +
+  theme(#panel.border = element_blank(), 
+    panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(), 
+  ) + 
+  labs(title = "League speed relative to the EPL for the 2017-18 regular season", x = "Zone", fill = "Zone", y = expression(paste(Delta, " Speed (%)")))
+```
+
+# Hypothesis Test of Zone 1 EPL vs Serie A
+
+```{r}
+load("bootstrap example/england_EW_zone_1_bootstrap.Rda")
+load("bootstrap example/italy_EW_zone_1_bootstrap.Rda")
+```
+
+```{r}
+tibble(
+  stat = england_EW_zone_1_bootstrap - italy_EW_zone_1_bootstrap
+) %>% 
+  mutate(lower = quantile(stat, 0.025, na.rm=TRUE), 
+         upper = quantile(stat, 0.975, na.rm=TRUE)) %>% 
+  ggplot() + 
+  geom_histogram(aes(x = stat), fill = "#A8CEE4", color = "#0C1E75", binwidth = 0.0125) + 
+  geom_vline(aes(
+    xintercept = league_average_speeds %>% filter(zone == 1, direction == "EW") %>% pull(mean_england_zones) -
+      league_average_speeds %>% filter(zone == 1, direction == "EW") %>% pull(mean_italy_zones) 
+  )) + 
+  geom_vline(aes(xintercept = lower)) + 
+  geom_vline(aes(xintercept = upper)) + 
+  labs(title  =  "Bootstrap of Zone 1 (EPL - Serie A)")
+
+```
+
+
+
+
+- look at league pace averages across the zones
+- look at diff in pace between top team minus league averages across zones
+
+event speed / ball speed something diff
+
+dump things onto the doc, cut things as we go 
+
+# last section
+sensitivity analysis - increasing or decreasing # of events/possession
+- maybe look at one section/proboably  zonal analysis 
+
+comparing top teams to bottom teams in terms of # of passes/possessions
+- really clarify that top teams have more passes included in this analysis 
+
+```{r}
+passes_per_poss <- filtered_england_speeds %>% 
+  tbl_df() %>% 
+  #filter(name %in% c("Manchester City", "Liverpool", "Crystal Palace", "AFC Bournemouth", "West Bromwich Albion")) %>%
+  group_by(name, match_id, match_period, poss_id) %>% 
+  summarise(pass_count = n())
+
+passes_per_poss %>% 
+  group_by(name) %>% 
+  summarise(avg_passes_per_poss = mean(pass_count),
+            sd_passes_per_poss = sd(pass_count),
+            median_passes_per_poss = median(pass_count))
+
+passes_per_poss %>%
+  # mutate(name = factor(name, levels = c("Manchester City", "Liverpool", "Crystal Palace", "AFC Bournemouth", "West Bromwich Albion"))) %>% 
+  ggplot() + geom_boxplot(aes(x = name, y = pass_count)) + 
+  #ylim(0,40) + 
+  labs(title = "Avg # of Passes / possession")
+# man city huge outlier is man city vs afc bournemouth, won 4-0
+```
+
+
+```{r}
+england_match_poss_count <- filtered_england_speeds %>% 
+  tbl_df() %>% 
+  group_by(match_id) %>% 
+  summarise(poss_count = n_distinct(poss_id)) 
+
+france_match_poss_count <- filtered_france_speeds %>% 
+  tbl_df() %>% 
+  group_by(match_id) %>% 
+  summarise(poss_count = n_distinct(poss_id)) 
+
+germany_match_poss_count <- filtered_germany_speeds %>% 
+  tbl_df() %>% 
+  group_by(match_id) %>% 
+  summarise(poss_count = n_distinct(poss_id)) 
+
+italy_match_poss_count <- filtered_italy_speeds %>% 
+  tbl_df() %>% 
+  group_by(match_id) %>% 
+  summarise(poss_count = n_distinct(poss_id)) 
+
+spain_match_poss_count <- filtered_spain_speeds %>% 
+  tbl_df() %>% 
+  group_by(match_id) %>% 
+  summarise(poss_count = n_distinct(poss_id)) 
+
+bind_rows(
+  england_match_poss_count %>% mutate(league = "EPL"),
+  france_match_poss_count %>% mutate(league = "Ligue 1"),
+  germany_match_poss_count %>% mutate(league = "Bundesliga"),
+  italy_match_poss_count %>% mutate(league = "Serie A"),
+  spain_match_poss_count %>% mutate(league = "La Liga")
+) %>% 
+  mutate(league = factor(league, levels = c("EPL", "Ligue 1", "Bundesliga",  "Serie A", "La Liga"))) %>% 
+  ggplot() + 
+  geom_boxplot(aes(x = poss_count)) + 
+  facet_grid(league~.) + 
+  labs(title = "Average # of Possessions in a Game", subtitle = "after filtering >=3 passes/possession")
+```
+
+
+

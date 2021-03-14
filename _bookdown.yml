@@ -1,0 +1,5 @@
+# book_filename: "rename_me"  # Uncomment this line to rename your PDF book from _main.pdf to rename_me.pdf.  See https://bookdown.org/yihui/bookdown/configuration.html
+delete_merged_file: true
+language:
+  ui:
+    chapter_name: "Chapter "

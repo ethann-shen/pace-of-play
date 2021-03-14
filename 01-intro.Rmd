@@ -1,0 +1,18 @@
+# Introduction {#intro}
+
+Pace-of-play is an important characteristic in possession-based / team-based sports that can heavily influence the style and outcome of a match. In soccer, pace-of-play has been defined as the number of shots taken or total number of successful passes per game. The main limitation of event-based pace metrics is that they fail to appropriately account for the circumstances under which they are performed. For example, the total number of successful passes does not differentiate between a pass made between two defenders in their own half and a pass from a winger trying to create a goal-scoring opportunity. 
+
+Pace-of-play has also been measured as the distance covered over time within a team’s possessions. However, short possessions do not provide an accurate measurement of pace. For example, a possession consisting of a goal kick and a pass may travel at a fast speed, but does not contribute to a team’s overall pace.  
+
+The aim of this work is to analyze pace-of-play for possessions that consist of three or more pass or free kick events, as these types of events are more definitive of a team’s pace. The use of spatio-temporal event data allows for more granular measurements of pace-of-play, such as measures of speed between consecutive events and between different regions on the pitch. 
+
+In addition, we seek to build a model using these metrics (add more when we get to modeling).
+
+Our research goals are three-fold:
+Examine how pace-of-play varies across the pitch, between different players and across different professional leagues.  
+Quantify variations in pace at the player and team level and provide metrics to assess how well players and teams attack/defend pace. 
+Evaluate effectiveness of pace metrics by incorporating them into models that predict the outcome of a match. 
+
+Our results show that pace is ____, and are good/bad variables when predicting the outcome of a match. 
+
+The remainder of this paper is organized as follows. Section 2 discusses the related work that analyzes pace-of-play in soccer and other team sports and Section 3 describes the dataset / datasets. Section 4 introduces the pace-of-play metrics and the modeling methods. Section 5 presents the results of the methodology. Sections 6 and 7 provide a discussion of our findings and a conclusion, respectively.  
